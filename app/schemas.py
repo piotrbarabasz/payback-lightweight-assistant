@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -87,6 +87,99 @@ class QueryEntities(APIModel):
     occasion: str | None = None
     dietary_preference: str | None = None
     brand: str | None = None
+
+
+class Product(APIModel):
+    """Raw catalog product entity used before retrieval scoring."""
+
+    product_id: str = Field(..., min_length=1)
+    partner: Partner
+    name: str = Field(..., min_length=1)
+    name_de: str = Field(..., min_length=1)
+    category: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=1)
+    description_de: str = Field(..., min_length=1)
+    brand: str = Field(..., min_length=1)
+    price: float = Field(..., ge=0)
+    currency: str = Field(default="EUR", min_length=3, max_length=3)
+    tags: list[str] = Field(..., min_length=1)
+    tags_de: list[str] = Field(..., min_length=1)
+    availability: bool = True
+    popularity_score: float = Field(default=0.5, ge=0, le=1)
+    is_promotion: bool = False
+    product_url: Optional[str] = None
+
+    @field_validator(
+        "product_id",
+        "name",
+        "name_de",
+        "category",
+        "description",
+        "description_de",
+        "brand",
+        mode="before",
+    )
+    @classmethod
+    def strip_catalog_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    @field_validator("partner")
+    @classmethod
+    def require_catalog_partner(cls, value: Partner) -> Partner:
+        if value == Partner.UNKNOWN:
+            raise ValueError("catalog products must use a concrete partner")
+        return value
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def normalize_currency(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().upper()
+        return value
+
+    @field_validator("tags", "tags_de")
+    @classmethod
+    def normalize_tags(cls, values: list[str]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+
+        for raw_value in values:
+            value = raw_value.strip().casefold()
+            if not value:
+                continue
+            if value not in seen:
+                normalized.append(value)
+                seen.add(value)
+
+        if not normalized:
+            raise ValueError("at least one non-blank tag is required")
+
+        return normalized
+
+    @field_validator("product_url", mode="before")
+    @classmethod
+    def normalize_product_url(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                return None
+            if not normalized.startswith(("https://", "http://")):
+                raise ValueError("product_url must start with http:// or https://")
+            return normalized
+        return value
+
+    @model_validator(mode="after")
+    def require_partner_prefixed_product_id(self) -> Product:
+        expected_prefix = f"{self.partner.value}-"
+        if not self.product_id.startswith(expected_prefix):
+            raise ValueError(
+                f"product_id must start with partner prefix {expected_prefix!r}"
+            )
+        return self
 
 
 class ProductResult(APIModel):
