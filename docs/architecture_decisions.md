@@ -1,6 +1,6 @@
-# Architecture Decisions: Stages 1-3
+# Architecture Decisions: Stages 1-4
 
-This document records the initial architecture decisions for the Stage 1 through Stage 3 lightweight assistant backend.
+This document records the initial architecture decisions for the Stage 1 through Stage 4 lightweight assistant backend.
 
 ## 1. Backend Framework
 
@@ -26,7 +26,7 @@ This document records the initial architecture decisions for the Stage 1 through
 
 ## 3. Assistant Response Behavior
 
-**Decision:** The assistant endpoint returns deterministic responses that follow the final response schema. In Stage 3, search-like queries return keyword-ranked `ProductResult` objects from the local synthetic catalog.
+**Decision:** The assistant endpoint returns deterministic responses that follow the final response schema. In Stage 4, an intent detection result is created first; search-like queries then return keyword-ranked `ProductResult` objects from the local synthetic catalog.
 
 **Reason:** This keeps API behavior stable while adding real local retrieval before introducing semantic search or AI providers.
 
@@ -34,10 +34,13 @@ This document records the initial architecture decisions for the Stage 1 through
 
 **Decision:**
 
-- Not implemented in Stage 1.
-- Future implementation may use a rule-based detector and optional LLM/Vertex AI provider.
+- Stage 4 implements deterministic intent detection in `app/intent/`.
+- The current service is `analyze_query_intent`.
+- The detector uses query normalization, language detection, support keywords, comparison terms, discovery terms, vague-query checks, partner hints, and basic entity extraction.
+- The service returns an `IntentDetectionResult` schema.
+- The service returns the same `IntentDetectionResult` shape that a future LLM or Vertex AI provider can produce without changing route handlers.
 
-**Reason:** This keeps Stage 1 focused and prevents premature complexity.
+**Reason:** Deterministic rules are sufficient for the current challenge stage, keep tests stable, and establish a clean extension point before adding external AI services.
 
 ## 5. Product Retrieval
 
@@ -102,3 +105,9 @@ This document records the initial architecture decisions for the Stage 1 through
 **Decision:** Stage 3 detects simple price preferences such as `cheap` and `premium` from deterministic keyword lists.
 
 **Reason:** These hints are useful for ranking and can be exposed through the existing `QueryEntities.price_preference` field without changing the public API schema.
+
+## 14. Route Handler Thinness
+
+**Decision:** Stage 4 keeps pure intent analysis in `app/intent/service.py` and moves assistant response orchestration into `app/assistant/service.py`.
+
+**Reason:** FastAPI route handlers should handle HTTP concerns only. Intent detection should stay independent from retrieval, while retrieval orchestration and response assembly are easier to test and evolve outside `app/main.py`.

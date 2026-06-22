@@ -8,7 +8,8 @@ The lightweight assistant is a backend API for a PAYBACK-like shopping assistant
 
 - Stage 1 defined the MVP scope, API contract, data schemas, and initial FastAPI service.
 - Stage 2 added a validated synthetic product catalog and local catalog utilities.
-- Stage 3 adds deterministic keyword retrieval over the synthetic catalog without AI model calls, vector search, or deployment infrastructure.
+- Stage 3 added deterministic keyword retrieval over the synthetic catalog without AI model calls, vector search, or deployment infrastructure.
+- Stage 4 adds deterministic intent detection, language detection, entity extraction, specificity classification, partner hint detection, and next-best-action logic.
 
 ## 3. In Scope
 
@@ -22,6 +23,7 @@ The lightweight assistant is a backend API for a PAYBACK-like shopping assistant
 - Synthetic catalog data for local retrieval.
 - Deterministic keyword retrieval, scoring, and ranking.
 - Support routing and clarifying question behavior.
+- Modular deterministic intent detection with a future provider interface.
 
 ## 4. Out of Scope
 
@@ -29,6 +31,7 @@ The lightweight assistant is a backend API for a PAYBACK-like shopping assistant
 - Real vector search.
 - Embeddings.
 - LLM calls.
+- Gemini calls.
 - GCP deployment.
 - Cloud Run.
 - Vertex AI.

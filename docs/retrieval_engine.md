@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Stage 3 introduces the first deterministic catalog retrieval layer. It searches the local synthetic product catalog with transparent keyword logic before semantic retrieval, embeddings, or vector search are added.
+Stage 3 introduced the first deterministic catalog retrieval layer. It searches the local synthetic product catalog with transparent keyword logic before semantic retrieval, embeddings, or vector search are added.
 
 The goal is to keep retrieval explainable, testable, and API-compatible through `ProductResult` objects.
 
@@ -10,6 +10,7 @@ The goal is to keep retrieval explainable, testable, and API-compatible through 
 
 ```text
 User query
+-> Stage 4 intent detection
 -> normalization
 -> partner, category, and price hint detection
 -> keyword search
@@ -18,7 +19,7 @@ User query
 -> ProductResult conversion
 ```
 
-The API route stays thin: it loads catalog products, calls the retrieval service, and returns the ranked results in `AssistantQueryResponse`.
+The FastAPI route stays thin. Pure intent analysis lives in `app/intent/service.py`; assistant orchestration lives in `app/assistant/service.py`, which combines Stage 4 intent detection with retrieval results when retrieval is appropriate.
 
 ## 3. Searchable Product Fields
 
@@ -67,4 +68,4 @@ German and English matching is supported through multilingual product fields (`n
 - BigQuery Vector Search.
 - Vertex AI embeddings.
 - Reranking.
-- Better intent detection.
+- LLM-backed intent detection provider.

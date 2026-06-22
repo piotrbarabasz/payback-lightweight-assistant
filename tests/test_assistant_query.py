@@ -160,6 +160,21 @@ def test_support_query_routes_to_support() -> None:
     assert data["results"] == []
 
 
+def test_unknown_query_returns_fallback_with_helpful_question() -> None:
+    response = client.post(
+        "/assistant/query",
+        json={"query": "random words without hints"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "unknown"
+    assert data["specificity"] == "unknown"
+    assert data["next_best_action"] == "fallback"
+    assert data["clarifying_question"] is not None
+    assert data["results"] == []
+
+
 def test_payback_brand_context_does_not_force_support_route() -> None:
     response = client.post(
         "/assistant/query",

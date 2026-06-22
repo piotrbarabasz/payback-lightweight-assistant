@@ -5,6 +5,7 @@ from app.schemas import (
     AssistantQueryRequest,
     AssistantQueryResponse,
     Intent,
+    IntentDetectionResult,
     Language,
     NextBestAction,
     Partner,
@@ -163,3 +164,33 @@ def test_assistant_query_response_accepts_clarifying_question_response() -> None
     assert response.next_best_action == NextBestAction.ASK_CLARIFYING_QUESTION
     assert response.clarifying_question is not None
     assert response.results == []
+
+
+def test_intent_detection_result_accepts_internal_decision_output() -> None:
+    result = IntentDetectionResult(
+        query="Something nice",
+        language=Language.EN,
+        intent=Intent.DISCOVERY,
+        specificity=Specificity.VAGUE,
+        next_best_action=NextBestAction.ASK_CLARIFYING_QUESTION,
+        partner_hint=Partner.UNKNOWN,
+        entities=QueryEntities(),
+        requires_clarification=True,
+    )
+
+    assert result.confidence == 0.7
+    assert result.requires_clarification is True
+    assert result.clarifying_question is None
+
+
+def test_intent_detection_result_rejects_confidence_above_one() -> None:
+    with pytest.raises(ValidationError):
+        IntentDetectionResult(
+            query="Show me products",
+            language=Language.EN,
+            intent=Intent.SEARCH,
+            specificity=Specificity.SPECIFIC,
+            next_best_action=NextBestAction.SEARCH_CATALOG,
+            entities=QueryEntities(),
+            confidence=1.5,
+        )

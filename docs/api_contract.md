@@ -1,6 +1,6 @@
 # API Contract
 
-This document defines the API contract for the lightweight assistant backend. Stage 3 uses deterministic keyword retrieval for search-like queries against the local synthetic catalog.
+This document defines the API contract for the lightweight assistant backend. Stage 4 uses deterministic intent detection before deterministic keyword retrieval for search-like queries against the local synthetic catalog.
 
 Base URL for local development:
 
@@ -30,8 +30,8 @@ http://127.0.0.1:8000
 - Main assistant endpoint.
 - Accepts a raw user query.
 - Returns either keyword-ranked product results, a clarifying question, or a support routing decision.
-- Performs deterministic query normalization, keyword matching, filtering, scoring, and ranking.
-- Does not perform semantic search, embeddings, FAISS retrieval, BigQuery Vector Search, Vertex AI calls, or LLM-based intent detection in Stage 3.
+- Performs deterministic query normalization, language detection, intent detection, specificity classification, partner hint detection, entity extraction, next-best-action selection, keyword matching, filtering, scoring, and ranking.
+- Does not perform semantic search, embeddings, FAISS retrieval, BigQuery Vector Search, Vertex AI calls, Gemini calls, or LLM-based intent detection in Stage 4.
 
 ### Request Schema
 
@@ -125,20 +125,22 @@ http://127.0.0.1:8000
 }
 ```
 
-### Stage 3 Retrieval Behavior
+### Stage 4 Intent and Retrieval Behavior
 
+- Intent detection runs before retrieval through the deterministic `analyze_query_intent` service.
+- The detector returns an `IntentDetectionResult` with language, intent, specificity, partner hint, entities, next-best-action, and optional clarifying question.
 - Search-like queries are normalized and matched against English and German product names, descriptions, categories, and tags.
 - Explicit partner tokens such as `dm`, `edeka`, or `amazon` restrict retrieval to that partner when possible.
 - German and English keyword variants are handled by deterministic token normalization and a small synonym map.
 - Simple price preferences are exposed in `entities.price_preference`, for example `cheap` or `premium`.
+- Basic query entities are exposed in `entities`, including product category, price preference, occasion, dietary preference, and brand when detected.
 - Scores are deterministic values in the `0..1` range.
 - Result `reason` values explain which catalog fields matched and whether a price preference affected ranking.
-- Temporary rule-based intent handling is used until Stage 4:
-  comparison words such as `compare`, `comparison`, `vergleich`, or `vergleiche`
+- Comparison words such as `compare`, `comparison`, `vergleich`, or `vergleiche`
   return `intent: comparison` and `next_best_action: compare_products`.
-- Meal or occasion words such as `dinner`, `breakfast`, `lunch`,
-  `abendessen`, or `fruehstueck` return `intent: discovery` with
-  `next_best_action: search_catalog`.
+- Meal, occasion, inspiration, or recommendation words such as `dinner`,
+  `breakfast`, `lunch`, `abendessen`, `fruehstueck`, `ideas`, or `recommend`
+  return `intent: discovery`.
 - Explicit partner mentions return `specificity: navigational` and
   `next_best_action: partner_specific_search`, unless comparison routing applies.
 - Vague queries still return `ask_clarifying_question`.

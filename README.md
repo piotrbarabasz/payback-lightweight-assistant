@@ -4,7 +4,7 @@ A lightweight backend assistant API that receives a user query, detects the inte
 
 ## Current Stage
 
-This repository is currently at Stage 3. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, and Stage 3 adds deterministic keyword retrieval over that catalog.
+This repository is currently at Stage 4. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, and Stage 4 adds a modular deterministic intent detection layer.
 
 ## Implemented
 
@@ -12,8 +12,20 @@ This repository is currently at Stage 3. Stage 1 established the backend foundat
 - API contract.
 - Pydantic API schemas.
 - FastAPI health endpoint and assistant endpoint.
+- Modular deterministic intent detection.
+- Language detection, entity extraction, partner hint detection, intent classification, specificity classification, next-best-action decisions, and clarifying question generation.
 - Deterministic keyword retrieval engine.
 - Tests for API behavior, schemas, catalog generation, loading, validation, filters, and retrieval.
+
+## Architecture Overview
+
+```text
+User query
+-> Intent Detection Service
+-> Decision Layer
+-> Retrieval Engine
+-> Product Results or Clarifying Question
+```
 
 ## Stage 2: Synthetic Product Catalog
 
@@ -53,7 +65,7 @@ GET /catalog/products?partner=edeka&limit=10
 
 ## Stage 3: Retrieval Engine
 
-Stage 3 adds local deterministic retrieval for `POST /assistant/query`.
+Stage 3 added local deterministic retrieval for `POST /assistant/query`.
 
 What was added:
 
@@ -67,15 +79,31 @@ What was added:
 
 Retrieval details are documented in [docs/retrieval_engine.md](docs/retrieval_engine.md).
 
+## Stage 4: Intent Detection Module
+
+Stage 4 moves temporary route-level intent rules into a testable `app/intent/` package and keeps HTTP handlers thin.
+
+What was added:
+
+- Language detection.
+- Entity extraction.
+- Partner hint detection.
+- Intent classification.
+- Specificity classification.
+- Next best action decision.
+- Clarifying question generation.
+- Integration with `POST /assistant/query`.
+
+Intent detection details are documented in [docs/intent_detection.md](docs/intent_detection.md).
+
 ## Not Implemented Yet
 
+- LLM-based intent detection.
+- Gemini / Vertex AI provider.
 - Embeddings.
 - Semantic search.
-- FAISS.
 - BigQuery Vector Search.
-- Vertex AI.
-- LLM-based intent detection.
-- GCP deployment.
+- Cloud Run deployment.
 
 ## Local Setup
 
@@ -134,7 +162,7 @@ pytest
 ## API Endpoints
 
 - `GET /health`: health check for local development and future deployment.
-- `POST /assistant/query`: main assistant endpoint. It returns deterministic keyword-ranked catalog results, support routing, or a clarifying question.
+- `POST /assistant/query`: main assistant endpoint. It returns deterministic intent detection, keyword-ranked catalog results, support routing, or a clarifying question.
 - `GET /catalog/products`: development-only catalog preview endpoint.
 
 Interactive OpenAPI docs are available at `/docs` when the app is running.
@@ -149,6 +177,14 @@ curl -X POST "http://127.0.0.1:8000/assistant/query" \
     "top_k": 5
   }'
 ```
+
+Example queries:
+
+- `Bitte zeige mir Angebote für günstige Windeln`
+- `I need stuff for a pasta dinner`
+- `Show me headphones on Amazon`
+- `Meine PAYBACK Punkte fehlen`
+- `Something nice`
 
 Example response:
 
@@ -185,6 +221,5 @@ Example response:
 
 ## Planned Next Stages
 
-- Stage 4: intent detection module.
 - Stage 5: Docker and Cloud Run.
 - Stage 6: Vertex AI and BigQuery Vector Search.

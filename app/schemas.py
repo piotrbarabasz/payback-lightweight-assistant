@@ -89,6 +89,19 @@ class QueryEntities(APIModel):
     brand: str | None = None
 
 
+class IntentDetectionResult(APIModel):
+    query: str
+    language: Language
+    intent: Intent
+    specificity: Specificity
+    next_best_action: NextBestAction
+    partner_hint: Optional[Partner] = None
+    entities: QueryEntities
+    confidence: float = Field(default=0.7, ge=0, le=1)
+    requires_clarification: bool = False
+    clarifying_question: Optional[str] = None
+
+
 class Product(APIModel):
     """Raw catalog product entity used before retrieval scoring."""
 

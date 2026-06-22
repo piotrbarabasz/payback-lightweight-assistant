@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
+from app.intent.language import detect_language
 from app.schemas import Language, Partner
 
 
@@ -15,43 +16,6 @@ PARTNER_TOKENS: dict[str, Partner] = {
     "dm": Partner.DM,
     "edeka": Partner.EDEKA,
     "amazon": Partner.AMAZON,
-}
-
-GERMAN_HINTS = {
-    "angebot",
-    "angebote",
-    "abendessen",
-    "billig",
-    "billige",
-    "bitte",
-    "drogerie",
-    "fuer",
-    "fur",
-    "g\u00fcnstig",
-    "g\u00fcnstige",
-    "guenstig",
-    "guenstige",
-    "gunstig",
-    "gunstige",
-    "haarpflege",
-    "hilfe",
-    "hochwertig",
-    "ich",
-    "kaffee",
-    "kaufen",
-    "konto",
-    "kopfh\u00f6rer",
-    "lebensmittel",
-    "maus",
-    "milch",
-    "mir",
-    "nudeln",
-    "punkte",
-    "rabatt",
-    "suche",
-    "windeln",
-    "zahnpasta",
-    "zeige",
 }
 
 STOP_WORDS = {
@@ -289,7 +253,7 @@ def normalize_query(query: str) -> QueryAnalysis:
     return QueryAnalysis(
         raw_query=query,
         normalized_query=normalized_query,
-        language=_detect_language(query, expanded_tokens),
+        language=detect_language(query),
         tokens=tokens,
         expanded_tokens=frozenset(expanded_tokens),
         search_tokens=tuple(
@@ -335,11 +299,3 @@ def _simple_variants(token: str) -> set[str]:
     if token.endswith("n") and len(token) > 5:
         variants.add(token[:-1])
     return variants
-
-
-def _detect_language(raw_query: str, tokens: set[str]) -> Language:
-    if any(character in raw_query.lower() for character in "\u00e4\u00f6\u00fc\u00df"):
-        return Language.DE
-    if tokens & GERMAN_HINTS:
-        return Language.DE
-    return Language.EN
