@@ -53,7 +53,7 @@ Target catalog size:
 
 The catalog is designed to support later stages, including:
 
-- keyword search
+- keyword search (implemented in Stage 3)
 - vector search
 - hybrid retrieval
 - ranking

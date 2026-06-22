@@ -72,7 +72,8 @@ def test_generated_popularity_scores_are_between_zero_and_one() -> None:
 
 
 def test_write_catalog_can_generate_json_without_overwriting_real_catalog() -> None:
-    output_path = Path("tests/.generated-products.json")
+    output_path = Path("tmp/generated-products-test.json")
+    output_path.parent.mkdir(exist_ok=True)
 
     try:
         written_path = write_catalog(output_path)

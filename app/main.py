@@ -1,20 +1,25 @@
-"""FastAPI application for the PAYBACK lightweight assistant stub."""
+"""FastAPI application for the PAYBACK lightweight assistant."""
 
 from __future__ import annotations
 
-import re
 from typing import Annotated
 
 from fastapi import FastAPI, Query
 
 from app.catalog.filters import filter_available, filter_by_category, filter_by_partner
 from app.catalog.loader import load_products
+from app.retrieval import (
+    QueryAnalysis,
+    category_hint_from_results,
+    is_support_query,
+    normalize_query,
+    retrieve_products,
+)
 from app.schemas import (
     AssistantQueryRequest,
     AssistantQueryResponse,
     HealthResponse,
     Intent,
-    Language,
     NextBestAction,
     Partner,
     Product,
@@ -31,42 +36,25 @@ app = FastAPI(
 )
 
 
-SUPPORT_KEYWORDS = {"punkte", "points", "account", "konto"}
-DIAPER_KEYWORDS = {"baby", "babywindeln", "diaper", "diapers", "windel", "windeln"}
-PASTA_KEYWORDS = {"abendessen", "dinner", "nudel", "nudeln", "pasta", "spaghetti"}
-ELECTRONICS_KEYWORDS = {
-    "electronics",
-    "elektronik",
-    "headphone",
-    "headphones",
-    "kopfh\u00f6rer",
-    "kopfhoerer",
-}
-GERMAN_HINTS = {
-    "angebote",
-    "bitte",
-    "dm",
-    "edeka",
-    "fuer",
-    "hilfe",
-    "ich",
-    "konto",
-    "mir",
-    "punkte",
-    "suche",
-    "zeige",
-}
 VAGUE_QUERIES = {
+    "angebot",
     "angebote",
     "deals",
     "i need something nice",
     "products",
+    "produkte",
     "something nice",
 }
 CLARIFYING_QUESTION = "Are you looking for groceries, drugstore items, or general products?"
-CATALOG_MOCK_REASON = (
-    "Catalog-based mock result for Stage 2; no semantic retrieval or ranking applied."
-)
+COMPARISON_WORDS = {"compare", "comparison", "vergleich", "vergleiche"}
+MEAL_OR_OCCASION_WORDS = {
+    "abendessen",
+    "breakfast",
+    "dinner",
+    "fruehstueck",
+    "fr\u00fchst\u00fcck",
+    "lunch",
+}
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -76,7 +64,7 @@ def health() -> HealthResponse:
 
 @app.post("/assistant/query", response_model=AssistantQueryResponse)
 def query_assistant(payload: AssistantQueryRequest) -> AssistantQueryResponse:
-    return _build_stub_response(payload)
+    return _build_assistant_response(payload)
 
 
 @app.get("/catalog/products", response_model=list[Product])
@@ -98,17 +86,16 @@ def preview_catalog_products(
     return products[:limit]
 
 
-def _build_stub_response(payload: AssistantQueryRequest) -> AssistantQueryResponse:
-    """Return a deterministic stub response for API contract validation."""
+def _build_assistant_response(payload: AssistantQueryRequest) -> AssistantQueryResponse:
+    """Return a deterministic assistant response backed by local retrieval."""
 
     query = payload.query
-    tokens = _tokens(query)
-    language = _detect_language(query, tokens)
+    analysis = normalize_query(query)
 
-    if _is_support_query(query, tokens):
+    if is_support_query(analysis):
         return AssistantQueryResponse(
             query=query,
-            language=language,
+            language=analysis.language,
             intent=Intent.CUSTOMER_SUPPORT,
             specificity=Specificity.SPECIFIC,
             next_best_action=NextBestAction.ROUTE_TO_SUPPORT,
@@ -118,10 +105,10 @@ def _build_stub_response(payload: AssistantQueryRequest) -> AssistantQueryRespon
             results=[],
         )
 
-    if _is_vague_query(query, tokens):
+    if _is_vague_query(analysis):
         return AssistantQueryResponse(
             query=query,
-            language=language,
+            language=analysis.language,
             intent=Intent.DISCOVERY,
             specificity=Specificity.VAGUE,
             next_best_action=NextBestAction.ASK_CLARIFYING_QUESTION,
@@ -131,140 +118,110 @@ def _build_stub_response(payload: AssistantQueryRequest) -> AssistantQueryRespon
             results=[],
         )
 
-    products = filter_available(load_products())
-    selected_products = _select_mock_catalog_products(tokens, products)
+    results = retrieve_products(
+        query,
+        load_products(),
+        top_k=payload.top_k,
+    )
 
+    if not results:
+        return AssistantQueryResponse(
+            query=query,
+            language=analysis.language,
+            intent=_detect_temporary_intent(analysis),
+            specificity=Specificity.VAGUE,
+            next_best_action=NextBestAction.ASK_CLARIFYING_QUESTION,
+            clarifying_question=CLARIFYING_QUESTION,
+            partner_hint=analysis.partner_hint,
+            entities=QueryEntities(price_preference=analysis.price_preference),
+            results=[],
+        )
+
+    intent = _detect_temporary_intent(analysis)
     return AssistantQueryResponse(
         query=query,
-        language=language,
-        intent=Intent.SEARCH,
-        specificity=Specificity.SPECIFIC,
-        next_best_action=NextBestAction.SEARCH_CATALOG,
+        language=analysis.language,
+        intent=intent,
+        specificity=_specificity_for_search(analysis),
+        next_best_action=_next_best_action_for_search(intent, analysis),
         clarifying_question=None,
-        partner_hint=_partner_hint_from_products(selected_products),
-        entities=QueryEntities(
-            product_category=_category_hint_from_products(selected_products)
+        partner_hint=_partner_hint_from_results(
+            analysis.partner_hint,
+            results,
         ),
-        results=[
-            _product_to_mock_result(product)
-            for product in selected_products[: payload.top_k]
-        ],
+        entities=QueryEntities(
+            product_category=category_hint_from_results(results),
+            price_preference=analysis.price_preference,
+            occasion=_occasion_hint(analysis),
+            dietary_preference=_dietary_preference_hint(analysis),
+        ),
+        results=results,
     )
 
 
-def _tokens(query: str) -> set[str]:
-    return set(re.findall(r"\w+", query.casefold(), flags=re.UNICODE))
+def _is_vague_query(analysis: QueryAnalysis) -> bool:
+    if analysis.normalized_query in VAGUE_QUERIES:
+        return True
+    return not analysis.search_tokens
 
 
-def _detect_language(query: str, tokens: set[str]) -> Language:
-    if any(character in query.casefold() for character in "\u00e4\u00f6\u00fc\u00df"):
-        return Language.DE
-    if tokens & GERMAN_HINTS:
-        return Language.DE
-    return Language.EN
+def _detect_temporary_intent(analysis: QueryAnalysis) -> Intent:
+    """Temporary rule-based intent detection until Stage 4 intent handling."""
+
+    if analysis.expanded_tokens & COMPARISON_WORDS:
+        return Intent.COMPARISON
+    if analysis.expanded_tokens & MEAL_OR_OCCASION_WORDS:
+        return Intent.DISCOVERY
+    return Intent.SEARCH
 
 
-def _is_support_query(query: str, tokens: set[str]) -> bool:
-    lower_query = query.casefold()
-    return bool(tokens & SUPPORT_KEYWORDS) or any(
-        keyword in lower_query for keyword in SUPPORT_KEYWORDS
-    )
+def _next_best_action_for_search(
+    intent: Intent,
+    analysis: QueryAnalysis,
+) -> NextBestAction:
+    """Temporary rule-based next action until Stage 4 intent handling."""
+
+    if intent == Intent.COMPARISON:
+        return NextBestAction.COMPARE_PRODUCTS
+    if analysis.partner_hint is not None:
+        return NextBestAction.PARTNER_SPECIFIC_SEARCH
+    return NextBestAction.SEARCH_CATALOG
 
 
-def _is_vague_query(query: str, tokens: set[str]) -> bool:
-    return len(tokens) < 4 or query.casefold() in VAGUE_QUERIES
+def _specificity_for_search(analysis: QueryAnalysis) -> Specificity:
+    if analysis.partner_hint is not None:
+        return Specificity.NAVIGATIONAL
+    return Specificity.SPECIFIC
 
 
-def _select_mock_catalog_products(
-    tokens: set[str],
-    products: list[Product],
-) -> list[Product]:
-    if tokens & DIAPER_KEYWORDS:
-        preferred_products = [
-            product
-            for product in products
-            if product.partner == Partner.DM
-            and _product_has_any_tag(
-                product,
-                {"diapers", "baby", "windeln", "babywindeln"},
-            )
-        ]
-        if preferred_products:
-            return preferred_products
-
-    if tokens & PASTA_KEYWORDS:
-        preferred_products = [
-            product
-            for product in products
-            if product.partner == Partner.EDEKA
-            and _product_has_any_tag(
-                product,
-                {
-                    "pasta",
-                    "spaghetti",
-                    "nudeln",
-                    "abendessen",
-                    "grocery",
-                    "meal ingredient",
-                },
-            )
-        ]
-        if preferred_products:
-            return preferred_products
-
-    if tokens & ELECTRONICS_KEYWORDS:
-        preferred_products = [
-            product
-            for product in products
-            if product.partner == Partner.AMAZON
-            and _product_has_any_tag(
-                product,
-                {
-                    "electronics",
-                    "elektronik",
-                    "headphones",
-                    "wireless headphones",
-                    "kopfh\u00f6rer",
-                },
-            )
-        ]
-        if preferred_products:
-            return preferred_products
-
-    return products
-
-
-def _product_has_any_tag(product: Product, tags: set[str]) -> bool:
-    product_tags = set(product.tags + product.tags_de)
-    return bool(tags & product_tags)
-
-
-def _product_to_mock_result(product: Product) -> ProductResult:
-    return ProductResult(
-        product_id=product.product_id,
-        partner=product.partner,
-        name=product.name,
-        category=product.category,
-        price=product.price,
-        currency=product.currency,
-        score=0.75,
-        reason=CATALOG_MOCK_REASON,
-    )
-
-
-def _partner_hint_from_products(products: list[Product]) -> Partner:
-    if not products:
+def _partner_hint_from_results(
+    query_partner_hint: Partner | None,
+    results: list[ProductResult],
+) -> Partner:
+    if query_partner_hint is not None:
+        return query_partner_hint
+    if not results:
         return Partner.UNKNOWN
-    first_partner = products[0].partner
-    if all(product.partner == first_partner for product in products):
+
+    first_partner = results[0].partner
+    if all(result.partner == first_partner for result in results):
         return first_partner
     return Partner.UNKNOWN
 
 
-def _category_hint_from_products(products: list[Product]) -> str | None:
-    if not products:
-        return None
-    first_category = products[0].category
-    if all(product.category == first_category for product in products):
-        return first_category
+def _occasion_hint(analysis: QueryAnalysis) -> str | None:
+    if analysis.expanded_tokens & {"abendessen", "dinner"}:
+        return "dinner"
+    if analysis.expanded_tokens & {"breakfast", "fruehstueck", "fruhstuck"}:
+        return "breakfast"
+    return None
+
+
+def _dietary_preference_hint(analysis: QueryAnalysis) -> str | None:
+    if analysis.expanded_tokens & {"bio", "organic"}:
+        return "organic"
+    if analysis.expanded_tokens & {"vegetarian", "vegetarisch"}:
+        return "vegetarian"
+    if analysis.expanded_tokens & {"vegan"}:
+        return "vegan"
     return None

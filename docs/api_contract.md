@@ -1,6 +1,6 @@
 # API Contract
 
-This document defines the API contract for the lightweight assistant backend. Stage 2 still uses deterministic stub behavior for the assistant endpoint, but search-like queries can now return catalog-based mock results from the local synthetic catalog.
+This document defines the API contract for the lightweight assistant backend. Stage 3 uses deterministic keyword retrieval for search-like queries against the local synthetic catalog.
 
 Base URL for local development:
 
@@ -29,8 +29,9 @@ http://127.0.0.1:8000
 
 - Main assistant endpoint.
 - Accepts a raw user query.
-- Returns either catalog-based mock product results, a clarifying question, or a support routing decision.
-- Does not perform semantic search, ranking, embeddings, or LLM-based intent detection in Stage 2.
+- Returns either keyword-ranked product results, a clarifying question, or a support routing decision.
+- Performs deterministic query normalization, keyword matching, filtering, scoring, and ranking.
+- Does not perform semantic search, embeddings, FAISS retrieval, BigQuery Vector Search, Vertex AI calls, or LLM-based intent detection in Stage 3.
 
 ### Request Schema
 
@@ -76,8 +77,8 @@ http://127.0.0.1:8000
       "category": "baby care",
       "price": 9.6,
       "currency": "EUR",
-      "score": 0.75,
-      "reason": "Catalog-based mock result for Stage 2; no semantic retrieval or ranking applied."
+      "score": 0.4396,
+      "reason": "Matched query terms in product tags and description. Boosted for category hint, cheap price preference, promotion, popularity."
     }
   ]
 }
@@ -94,8 +95,8 @@ http://127.0.0.1:8000
 | `next_best_action` | enum | Recommended downstream action for the backend or client. |
 | `clarifying_question` | string or null | Present when the assistant should ask for more detail. |
 | `partner_hint` | enum or null | Partner inferred from the query, `unknown`, or null. |
-| `entities` | object | Structured entities extracted or mocked from the query. |
-| `results` | array | Product result objects. Stage 2 results are catalog-based mock results, not ranked retrieval output. |
+| `entities` | object | Structured entities extracted from the query. |
+| `results` | array | Keyword-ranked product result objects. |
 
 ### QueryEntities Object
 
@@ -119,14 +120,33 @@ http://127.0.0.1:8000
   "category": "baby care",
   "price": 9.6,
   "currency": "EUR",
-  "score": 0.75,
-  "reason": "Catalog-based mock result for Stage 2; no semantic retrieval or ranking applied."
+  "score": 0.4396,
+  "reason": "Matched query terms in product tags and description. Boosted for category hint, cheap price preference, promotion, popularity."
 }
 ```
 
+### Stage 3 Retrieval Behavior
+
+- Search-like queries are normalized and matched against English and German product names, descriptions, categories, and tags.
+- Explicit partner tokens such as `dm`, `edeka`, or `amazon` restrict retrieval to that partner when possible.
+- German and English keyword variants are handled by deterministic token normalization and a small synonym map.
+- Simple price preferences are exposed in `entities.price_preference`, for example `cheap` or `premium`.
+- Scores are deterministic values in the `0..1` range.
+- Result `reason` values explain which catalog fields matched and whether a price preference affected ranking.
+- Temporary rule-based intent handling is used until Stage 4:
+  comparison words such as `compare`, `comparison`, `vergleich`, or `vergleiche`
+  return `intent: comparison` and `next_best_action: compare_products`.
+- Meal or occasion words such as `dinner`, `breakfast`, `lunch`,
+  `abendessen`, or `fruehstueck` return `intent: discovery` with
+  `next_best_action: search_catalog`.
+- Explicit partner mentions return `specificity: navigational` and
+  `next_best_action: partner_specific_search`, unless comparison routing applies.
+- Vague queries still return `ask_clarifying_question`.
+- Account or PAYBACK points support queries still return `route_to_support`.
+
 ## Development Endpoints
 
-These endpoints are intended for local development and demos only. They expose the synthetic Stage 2 catalog so later retrieval work can be inspected without adding semantic search, ranking, embeddings, or cloud integrations.
+These endpoints are intended for local development and demos only. They expose the synthetic catalog so retrieval behavior can be inspected without adding embeddings or cloud integrations.
 
 ## GET /catalog/products
 

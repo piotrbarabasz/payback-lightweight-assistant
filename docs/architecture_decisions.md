@@ -1,6 +1,6 @@
-# Architecture Decisions: Stages 1-2
+# Architecture Decisions: Stages 1-3
 
-This document records the initial architecture decisions for the Stage 1 and Stage 2 lightweight assistant backend.
+This document records the initial architecture decisions for the Stage 1 through Stage 3 lightweight assistant backend.
 
 ## 1. Backend Framework
 
@@ -24,11 +24,11 @@ This document records the initial architecture decisions for the Stage 1 and Sta
 - Strong typing.
 - Useful for a stable API contract.
 
-## 3. Assistant Stub Response Behavior
+## 3. Assistant Response Behavior
 
-**Decision:** The assistant endpoint returns a deterministic stubbed response that follows the final response schema. In Stage 2, search-like queries may return catalog-based mock results from the local synthetic catalog.
+**Decision:** The assistant endpoint returns deterministic responses that follow the final response schema. In Stage 3, search-like queries return keyword-ranked `ProductResult` objects from the local synthetic catalog.
 
-**Reason:** This allows API contract validation before implementing real retrieval, ranking, or AI logic.
+**Reason:** This keeps API behavior stable while adding real local retrieval before introducing semantic search or AI providers.
 
 ## 4. Intent Detection
 
@@ -43,10 +43,14 @@ This document records the initial architecture decisions for the Stage 1 and Sta
 
 **Decision:**
 
-- Real retrieval is not implemented in Stage 2.
+- Stage 3 implements deterministic keyword retrieval in `app/retrieval/`.
+- Query normalization, keyword matching, scoring, and service orchestration are separate modules.
+- Products are matched against names, descriptions, categories, tags, and brand text.
+- German and English fields are both used.
+- Scores are deterministic and normalized into the `0..1` API range.
 - Future implementation may use hybrid keyword + vector retrieval.
 
-**Reason:** Stage 2 prepares validated catalog data, but retrieval scoring and embeddings belong to later stages.
+**Reason:** A simple explainable retrieval layer is sufficient for the challenge stage, can be fully unit-tested, and leaves embeddings/vector search for a later stage.
 
 ## 6. Cloud Deployment
 
@@ -79,4 +83,22 @@ This document records the initial architecture decisions for the Stage 1 and Sta
 
 **Decision:** Stage 2 includes simple filtering utilities only.
 
-**Reason:** Partner, category, price, tag, availability, and promotion filters are useful for Stage 3 retrieval preparation, while embeddings, vector search, and ranking belong to later stages.
+**Reason:** Partner, category, price, tag, availability, and promotion filters are useful inputs for Stage 3 keyword retrieval, while embeddings and vector search belong to later stages.
+
+## 11. Deterministic Keyword Ranking
+
+**Decision:** Stage 3 uses weighted keyword scoring instead of embeddings, FAISS, BigQuery Vector Search, Vertex AI, or external LLM calls.
+
+**Reason:** Deterministic scoring makes behavior easy to explain and test. It also creates a modular baseline that can later be combined with semantic retrieval.
+
+## 12. Partner Hint Handling
+
+**Decision:** Explicit partner tokens such as `dm`, `edeka`, or `amazon` are detected during query normalization and used to restrict candidate products when possible.
+
+**Reason:** Partner-specific requests should not be diluted by otherwise similar products from another partner. If no partner-specific candidates exist, retrieval can fall back to the full available catalog.
+
+## 13. Price Preference Handling
+
+**Decision:** Stage 3 detects simple price preferences such as `cheap` and `premium` from deterministic keyword lists.
+
+**Reason:** These hints are useful for ranking and can be exposed through the existing `QueryEntities.price_preference` field without changing the public API schema.
