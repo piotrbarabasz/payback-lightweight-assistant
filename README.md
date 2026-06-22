@@ -4,15 +4,16 @@ A lightweight backend assistant API that receives a user query, detects the inte
 
 ## Current Stage
 
-This repository is currently at Stage 2. Stage 1 established the backend foundation; Stage 2 adds a synthetic product catalog and a clean local data layer for future retrieval work.
+This repository is currently at Stage 3. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, and Stage 3 adds deterministic keyword retrieval over that catalog.
 
 ## Implemented
 
 - MVP scope definition.
 - API contract.
 - Pydantic API schemas.
-- FastAPI health endpoint and assistant stub endpoint.
-- Tests for API stubs, schemas, catalog generation, loading, validation, and filters.
+- FastAPI health endpoint and assistant endpoint.
+- Deterministic keyword retrieval engine.
+- Tests for API behavior, schemas, catalog generation, loading, validation, filters, and retrieval.
 
 ## Stage 2: Synthetic Product Catalog
 
@@ -50,11 +51,29 @@ GET /catalog/products?partner=dm
 GET /catalog/products?partner=edeka&limit=10
 ```
 
+## Stage 3: Retrieval Engine
+
+Stage 3 adds local deterministic retrieval for `POST /assistant/query`.
+
+What was added:
+
+- Query normalization.
+- Keyword search.
+- Partner, category, and price hint detection.
+- Deterministic scoring.
+- Ranking.
+- `Product` to `ProductResult` conversion.
+- Integration with `POST /assistant/query`.
+
+Retrieval details are documented in [docs/retrieval_engine.md](docs/retrieval_engine.md).
+
 ## Not Implemented Yet
 
-- Real retrieval engine.
 - Embeddings.
-- Vector search.
+- Semantic search.
+- FAISS.
+- BigQuery Vector Search.
+- Vertex AI.
 - LLM-based intent detection.
 - GCP deployment.
 
@@ -92,10 +111,30 @@ uvicorn app.main:app --reload
 pytest
 ```
 
+## Command Reminders
+
+Generate catalog:
+
+```bash
+python app/data/generate_synthetic_catalog.py
+```
+
+Run API:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
 ## API Endpoints
 
 - `GET /health`: health check for local development and future deployment.
-- `POST /assistant/query`: main assistant endpoint. It returns deterministic Stage 1-style behavior with catalog-based mock product results for search-like queries.
+- `POST /assistant/query`: main assistant endpoint. It returns deterministic keyword-ranked catalog results, support routing, or a clarifying question.
 - `GET /catalog/products`: development-only catalog preview endpoint.
 
 Interactive OpenAPI docs are available at `/docs` when the app is running.
@@ -111,9 +150,41 @@ curl -X POST "http://127.0.0.1:8000/assistant/query" \
   }'
 ```
 
+Example response:
+
+```json
+{
+  "query": "Bitte zeige mir Angebote fuer guenstige Windeln",
+  "language": "de",
+  "intent": "search",
+  "specificity": "specific",
+  "next_best_action": "search_catalog",
+  "clarifying_question": null,
+  "partner_hint": "dm",
+  "entities": {
+    "product_category": "baby care",
+    "price_preference": "cheap",
+    "occasion": null,
+    "dietary_preference": null,
+    "brand": null
+  },
+  "results": [
+    {
+      "product_id": "dm-001",
+      "partner": "dm",
+      "name": "Penaten Baby Diapers Size 4 42 pcs",
+      "category": "baby care",
+      "price": 9.6,
+      "currency": "EUR",
+      "score": 0.4396,
+      "reason": "Matched query terms in product tags and description. Boosted for category hint, cheap price preference, promotion, popularity."
+    }
+  ]
+}
+```
+
 ## Planned Next Stages
 
-- Stage 3: retrieval engine using the validated catalog.
 - Stage 4: intent detection module.
 - Stage 5: Docker and Cloud Run.
 - Stage 6: Vertex AI and BigQuery Vector Search.
