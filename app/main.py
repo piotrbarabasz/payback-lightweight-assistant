@@ -9,6 +9,7 @@ from fastapi import FastAPI, Query
 from app.assistant.service import build_assistant_response
 from app.catalog.filters import filter_available, filter_by_category, filter_by_partner
 from app.catalog.loader import load_products
+from app.config import get_settings
 from app.intent.service import analyze_query_intent
 from app.schemas import (
     AssistantQueryRequest,
@@ -19,16 +20,23 @@ from app.schemas import (
 )
 
 
+settings = get_settings()
+
 app = FastAPI(
-    title="PAYBACK Lightweight Assistant",
-    version="0.1.0",
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
     description="Recruitment challenge backend for a lightweight PAYBACK-like assistant.",
 )
 
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse()
+    return HealthResponse(environment=settings.ENVIRONMENT)
+
+
+@app.get("/ready", response_model=HealthResponse)
+def readiness() -> HealthResponse:
+    return HealthResponse(environment=settings.ENVIRONMENT)
 
 
 @app.post("/assistant/query", response_model=AssistantQueryResponse)

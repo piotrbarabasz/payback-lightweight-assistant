@@ -4,7 +4,7 @@ A lightweight backend assistant API that receives a user query, detects the inte
 
 ## Current Stage
 
-This repository is currently at Stage 4. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, and Stage 4 adds a modular deterministic intent detection layer.
+This repository is currently at Stage 5. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, Stage 4 added a modular deterministic intent detection layer, and Stage 5 adds Docker and local deployment readiness.
 
 ## Implemented
 
@@ -15,6 +15,7 @@ This repository is currently at Stage 4. Stage 1 established the backend foundat
 - Modular deterministic intent detection.
 - Language detection, entity extraction, partner hint detection, intent classification, specificity classification, next-best-action decisions, and clarifying question generation.
 - Deterministic keyword retrieval engine.
+- Dockerfile, Docker Compose, runtime environment configuration, container health checks, and local smoke testing.
 - Tests for API behavior, schemas, catalog generation, loading, validation, filters, and retrieval.
 
 ## Architecture Overview
@@ -96,14 +97,51 @@ What was added:
 
 Intent detection details are documented in [docs/intent_detection.md](docs/intent_detection.md).
 
+## Stage 5: Docker and Local Deployment Readiness
+
+Stage 5 prepares the FastAPI service for local container execution and a later Cloud Run deployment stage.
+
+What was added:
+
+- `Dockerfile` based on Python 3.11 slim.
+- Non-root container user.
+- `.dockerignore` for clean Docker build context.
+- `docker-compose.yml` for local container development.
+- Environment-based configuration in `app/config.py`.
+- Production startup command that binds to `0.0.0.0` and reads `PORT`.
+- `/health` endpoint updated for deployment readiness.
+- Local smoke test script in `scripts/smoke_test_api.py`.
+- Container health check.
+- Future Cloud Run compatibility prepared.
+- Local deployment documentation in [docs/deployment_local.md](docs/deployment_local.md).
+
+No GCP deployment, Cloud Run scripts, BigQuery, Vertex AI, embeddings, FAISS, or external LLM calls are included in this stage.
+
 ## Not Implemented Yet
 
-- LLM-based intent detection.
-- Gemini / Vertex AI provider.
-- Embeddings.
-- Semantic search.
+- Actual GCP deployment.
+- Cloud Run deployment scripts.
+- Artifact Registry.
+- Vertex AI.
 - BigQuery Vector Search.
-- Cloud Run deployment.
+- Embeddings.
+- LLM-based intent detection.
+
+## Configuration
+
+Runtime configuration is environment-based:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `APP_NAME` | `PAYBACK Lightweight Assistant` | FastAPI application title. |
+| `APP_VERSION` | `0.5.0` | FastAPI application version. |
+| `ENVIRONMENT` | `local` | Runtime environment label. |
+| `HOST` | `0.0.0.0` | Bind host used by the container startup command. |
+| `PORT` | `8080` in Docker | Bind port used by container runtimes. |
+| `LOG_LEVEL` | `info` | Uvicorn log level. |
+| `CATALOG_PATH` | `app/data/products.json` | Local catalog JSON path. |
+| `DEFAULT_TOP_K` | `5` | Default assistant result count. |
+| `MAX_TOP_K` | `20` | Maximum assistant result count. |
 
 ## Local Setup
 
@@ -115,6 +153,7 @@ Unix/macOS:
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python app/data/generate_synthetic_catalog.py
 uvicorn app.main:app --reload
 ```
 
@@ -124,6 +163,7 @@ Windows PowerShell:
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+python app/data/generate_synthetic_catalog.py
 uvicorn app.main:app --reload
 ```
 
@@ -131,6 +171,45 @@ Run the app:
 
 ```bash
 uvicorn app.main:app --reload
+```
+
+Production-style startup:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8080 --log-level info
+```
+
+## Docker
+
+Build the image:
+
+```bash
+docker build -t payback-lightweight-assistant .
+```
+
+Run the container locally:
+
+```bash
+docker run --rm -p 8080:8080 -e PORT=8080 payback-lightweight-assistant
+```
+
+Use Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Check health and readiness:
+
+```bash
+curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:8080/ready
+```
+
+Smoke test:
+
+```bash
+python scripts/smoke_test_api.py
 ```
 
 ## Running Tests
@@ -162,6 +241,7 @@ pytest
 ## API Endpoints
 
 - `GET /health`: health check for local development and future deployment.
+- `GET /ready`: readiness check for container and future Cloud Run deployment.
 - `POST /assistant/query`: main assistant endpoint. It returns deterministic intent detection, keyword-ranked catalog results, support routing, or a clarifying question.
 - `GET /catalog/products`: development-only catalog preview endpoint.
 
@@ -221,5 +301,5 @@ Example response:
 
 ## Planned Next Stages
 
-- Stage 5: Docker and Cloud Run.
-- Stage 6: Vertex AI and BigQuery Vector Search.
+- Cloud Run deployment.
+- Vertex AI and BigQuery Vector Search.

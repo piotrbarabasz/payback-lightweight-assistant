@@ -7,6 +7,11 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.config import get_settings
+
+
+settings = get_settings()
+
 
 class APIModel(BaseModel):
     """Base model shared by API schemas."""
@@ -54,6 +59,7 @@ class Partner(StrEnum):
 class HealthResponse(APIModel):
     status: Literal["ok"] = "ok"
     service: Literal["payback-lightweight-assistant"] = "payback-lightweight-assistant"
+    environment: str = "local"
 
 
 class AssistantQueryRequest(APIModel):
@@ -67,9 +73,9 @@ class AssistantQueryRequest(APIModel):
         description="Reserved for future personalization.",
     )
     top_k: int = Field(
-        default=5,
+        default=settings.DEFAULT_TOP_K,
         ge=1,
-        le=20,
+        le=settings.MAX_TOP_K,
         description="Requested number of product results.",
     )
 

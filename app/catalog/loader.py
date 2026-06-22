@@ -8,16 +8,17 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
+from app.config import get_settings
 from app.schemas import Partner, Product
 
 
-DEFAULT_CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "products.json"
+DEFAULT_CATALOG_PATH = Path("app/data/products.json")
 
 
 def get_default_catalog_path() -> Path:
     """Return the default path to the synthetic product catalog."""
 
-    return DEFAULT_CATALOG_PATH
+    return Path(get_settings().CATALOG_PATH)
 
 
 def load_products(path: Path | None = None) -> list[Product]:
