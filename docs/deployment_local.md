@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Stage 5 prepares the FastAPI application for containerized deployment and a future Cloud Run deployment. This stage focuses on local runtime readiness, Docker packaging, health checks, and smoke testing.
+Stage 5 prepares the FastAPI application for containerized deployment and Cloud Run-compatible runtime behavior. This stage focuses on local runtime readiness, Docker packaging, health checks, and smoke testing.
 
 ## 2. Run Locally Without Docker
 
@@ -55,8 +55,8 @@ GET http://localhost:8080/health
 POST http://localhost:8080/assistant/query
 ```
 
-## 8. Future Cloud Run Notes
+## 8. Cloud Run Compatibility
 
 - Cloud Run will provide the `PORT` environment variable.
 - The container already listens on `0.0.0.0` and uses a configurable `PORT`.
-- GCP deployment scripts will be added in a later stage.
+- GCP deployment scripts are documented in [deployment_gcp_cloud_run.md](deployment_gcp_cloud_run.md).

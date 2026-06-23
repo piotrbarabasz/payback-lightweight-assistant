@@ -12,7 +12,7 @@ http://127.0.0.1:8000
 
 ### Purpose
 
-- Health check endpoint for local development and future Cloud Run deployment.
+- Health check endpoint for local development and Cloud Run deployment.
 
 ### Response 200
 

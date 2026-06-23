@@ -26,7 +26,7 @@ def test_default_settings_load_correctly(monkeypatch) -> None:
     settings = get_settings()
 
     assert settings.APP_NAME == "PAYBACK Lightweight Assistant"
-    assert settings.APP_VERSION == "0.5.0"
+    assert settings.APP_VERSION == "0.6.0"
     assert settings.ENVIRONMENT == "local"
     assert settings.HOST == "0.0.0.0"
     assert settings.PORT == 8080

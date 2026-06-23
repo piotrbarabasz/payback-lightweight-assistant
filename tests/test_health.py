@@ -10,7 +10,7 @@ EXPECTED_HEALTH_KEYS = {"status", "service", "environment"}
 
 def test_app_metadata_uses_settings() -> None:
     assert app.title == "PAYBACK Lightweight Assistant"
-    assert app.version == "0.5.0"
+    assert app.version == "0.6.0"
 
 
 def test_health_endpoint_returns_ok() -> None:

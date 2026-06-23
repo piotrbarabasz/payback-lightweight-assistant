@@ -38,9 +38,9 @@ This document records the initial architecture decisions for the Stage 1 through
 - The current service is `analyze_query_intent`.
 - The detector uses query normalization, language detection, support keywords, comparison terms, discovery terms, vague-query checks, partner hints, and basic entity extraction.
 - The service returns an `IntentDetectionResult` schema.
-- The service returns the same `IntentDetectionResult` shape that a future LLM or Vertex AI provider can produce without changing route handlers.
+- The service returns a stable `IntentDetectionResult` shape without requiring external AI services.
 
-**Reason:** Deterministic rules are sufficient for the current challenge stage, keep tests stable, and establish a clean extension point before adding external AI services.
+**Reason:** Deterministic rules are sufficient for the current challenge stage, keep tests stable, and avoid external AI services.
 
 ## 5. Product Retrieval
 
@@ -51,18 +51,18 @@ This document records the initial architecture decisions for the Stage 1 through
 - Products are matched against names, descriptions, categories, tags, and brand text.
 - German and English fields are both used.
 - Scores are deterministic and normalized into the `0..1` API range.
-- Future implementation may use hybrid keyword + vector retrieval.
+- Stage 6 keeps retrieval local and deterministic.
 
-**Reason:** A simple explainable retrieval layer is sufficient for the challenge stage, can be fully unit-tested, and leaves embeddings/vector search for a later stage.
+**Reason:** A simple explainable retrieval layer is sufficient for the challenge stage, can be fully unit-tested, and avoids managed vector infrastructure.
 
 ## 6. Cloud Deployment
 
 **Decision:**
 
-- Not implemented in Stage 1.
-- Future target is Cloud Run, with optional Vertex AI and BigQuery Vector Search.
+- Stage 6 targets Cloud Run with Artifact Registry.
+- Vertex AI, BigQuery Vector Search, embeddings, FAISS, and external LLM calls are not part of the deployment path.
 
-**Reason:** Stage 1 should define the contract first, then deployment will follow.
+**Reason:** The recruitment challenge deployment should stay reproducible, low-cost, and limited to the existing Dockerized FastAPI API.
 
 ## 7. Synthetic Catalog Format
 
@@ -86,13 +86,13 @@ This document records the initial architecture decisions for the Stage 1 through
 
 **Decision:** Stage 2 includes simple filtering utilities only.
 
-**Reason:** Partner, category, price, tag, availability, and promotion filters are useful inputs for Stage 3 keyword retrieval, while embeddings and vector search belong to later stages.
+**Reason:** Partner, category, price, tag, availability, and promotion filters are useful inputs for Stage 3 keyword retrieval without embeddings or vector search.
 
 ## 11. Deterministic Keyword Ranking
 
 **Decision:** Stage 3 uses weighted keyword scoring instead of embeddings, FAISS, BigQuery Vector Search, Vertex AI, or external LLM calls.
 
-**Reason:** Deterministic scoring makes behavior easy to explain and test. It also creates a modular baseline that can later be combined with semantic retrieval.
+**Reason:** Deterministic scoring makes behavior easy to explain and test.
 
 ## 12. Partner Hint Handling
 

@@ -1,4 +1,4 @@
-"""Smoke test a running local assistant API."""
+"""Smoke test a running assistant API locally or on Cloud Run."""
 
 from __future__ import annotations
 
@@ -52,11 +52,14 @@ def print_response(label: str, status_code: int, payload: Any) -> None:
 
 
 def main() -> int:
-    print(f"API base URL: {API_BASE_URL}")
+    print(f"Testing API base URL: {API_BASE_URL}")
 
     try:
         status_code, payload = request_json("GET", "/health")
         print_response("GET /health", status_code, payload)
+        if status_code != 200:
+            print(f"Health check failed with status {status_code}.", file=sys.stderr)
+            return 1
 
         for query in QUERY_EXAMPLES:
             status_code, payload = request_json(

@@ -4,7 +4,7 @@ A lightweight backend assistant API that receives a user query, detects the inte
 
 ## Current Stage
 
-This repository is currently at Stage 5. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, Stage 4 added a modular deterministic intent detection layer, and Stage 5 adds Docker and local deployment readiness.
+This repository is currently at Stage 6. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, Stage 4 added a modular deterministic intent detection layer, Stage 5 added Docker and local deployment readiness, and Stage 6 adds minimal GCP Cloud Run deployment readiness.
 
 ## Implemented
 
@@ -16,6 +16,8 @@ This repository is currently at Stage 5. Stage 1 established the backend foundat
 - Language detection, entity extraction, partner hint detection, intent classification, specificity classification, next-best-action decisions, and clarifying question generation.
 - Deterministic keyword retrieval engine.
 - Dockerfile, Docker Compose, runtime environment configuration, container health checks, and local smoke testing.
+- Parameterized GCP Cloud Run deployment scripts using Artifact Registry and `gcloud`.
+- Cloud Run smoke testing against a public HTTPS endpoint.
 - Tests for API behavior, schemas, catalog generation, loading, validation, filters, and retrieval.
 
 ## Architecture Overview
@@ -99,7 +101,7 @@ Intent detection details are documented in [docs/intent_detection.md](docs/inten
 
 ## Stage 5: Docker and Local Deployment Readiness
 
-Stage 5 prepares the FastAPI service for local container execution and a later Cloud Run deployment stage.
+Stage 5 prepared the FastAPI service for local container execution and Cloud Run-compatible runtime behavior.
 
 What was added:
 
@@ -112,20 +114,59 @@ What was added:
 - `/health` endpoint updated for deployment readiness.
 - Local smoke test script in `scripts/smoke_test_api.py`.
 - Container health check.
-- Future Cloud Run compatibility prepared.
+- Cloud Run runtime compatibility prepared.
 - Local deployment documentation in [docs/deployment_local.md](docs/deployment_local.md).
 
-No GCP deployment, Cloud Run scripts, BigQuery, Vertex AI, embeddings, FAISS, or external LLM calls are included in this stage.
+At Stage 5, no GCP deployment, Cloud Run scripts, BigQuery, Vertex AI, embeddings, FAISS, or external LLM calls were included.
+
+## Stage 6: GCP Cloud Run Deployment
+
+Stage 6 adds a minimal deployment path from the existing Dockerized FastAPI app to Artifact Registry and Cloud Run.
+
+What was added:
+
+- Artifact Registry setup and Docker image push scripts.
+- Cloud Run deployment script.
+- Deployed API smoke test script.
+- Deployment documentation in [docs/deployment_gcp_cloud_run.md](docs/deployment_gcp_cloud_run.md).
+- Cost-control documentation in [docs/cost_control.md](docs/cost_control.md).
+
+Deployment path:
+
+```text
+Local Dockerized FastAPI app
+-> Artifact Registry image
+-> Cloud Run service
+-> public HTTPS endpoint
+-> smoke test
+```
+
+The current Cloud Run deployment still uses the synthetic catalog packaged inside the container. Cloud Run is configured with minimum instances set to `0` for cost efficiency. Vertex AI and BigQuery Vector Search are planned for later stages and are not included in Stage 6.
+
+Quick deployment flow:
+
+```bash
+export GCP_PROJECT_ID="your-project-id"
+export GCP_REGION="europe-west1"
+export ARTIFACT_REPOSITORY="payback-assistant"
+export IMAGE_NAME="payback-lightweight-assistant"
+export IMAGE_TAG="latest"
+export SERVICE_NAME="payback-lightweight-assistant"
+
+bash infra/gcp/setup_project.sh
+bash infra/gcp/create_artifact_registry.sh
+bash infra/gcp/build_and_push_image.sh
+bash infra/gcp/deploy_cloud_run.sh
+bash infra/gcp/smoke_test_deployed_api.sh
+```
 
 ## Not Implemented Yet
 
-- Actual GCP deployment.
-- Cloud Run deployment scripts.
-- Artifact Registry.
-- Vertex AI.
+- Vertex AI embeddings.
+- BigQuery product catalog.
 - BigQuery Vector Search.
-- Embeddings.
 - LLM-based intent detection.
+- Real partner API integrations.
 
 ## Configuration
 
@@ -134,7 +175,7 @@ Runtime configuration is environment-based:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `APP_NAME` | `PAYBACK Lightweight Assistant` | FastAPI application title. |
-| `APP_VERSION` | `0.5.0` | FastAPI application version. |
+| `APP_VERSION` | `0.6.0` | FastAPI application version. |
 | `ENVIRONMENT` | `local` | Runtime environment label. |
 | `HOST` | `0.0.0.0` | Bind host used by the container startup command. |
 | `PORT` | `8080` in Docker | Bind port used by container runtimes. |
@@ -212,6 +253,10 @@ Smoke test:
 python scripts/smoke_test_api.py
 ```
 
+## Cloud Run
+
+Use the Stage 6 quick deployment flow above for the Bash script sequence. Detailed instructions are in [docs/deployment_gcp_cloud_run.md](docs/deployment_gcp_cloud_run.md), and cost-control notes are in [docs/cost_control.md](docs/cost_control.md).
+
 ## Running Tests
 
 ```bash
@@ -241,7 +286,7 @@ pytest
 ## API Endpoints
 
 - `GET /health`: health check for local development and future deployment.
-- `GET /ready`: readiness check for container and future Cloud Run deployment.
+- `GET /ready`: readiness check for container and Cloud Run deployment.
 - `POST /assistant/query`: main assistant endpoint. It returns deterministic intent detection, keyword-ranked catalog results, support routing, or a clarifying question.
 - `GET /catalog/products`: development-only catalog preview endpoint.
 
@@ -301,5 +346,4 @@ Example response:
 
 ## Planned Next Stages
 
-- Cloud Run deployment.
-- Vertex AI and BigQuery Vector Search.
+- Optional production hardening and observability.

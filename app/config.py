@@ -27,7 +27,7 @@ def _env_int(name: str, default: int) -> int:
 @dataclass(frozen=True)
 class Settings:
     APP_NAME: str = "PAYBACK Lightweight Assistant"
-    APP_VERSION: str = "0.5.0"
+    APP_VERSION: str = "0.6.0"
     ENVIRONMENT: str = "local"
     HOST: str = "0.0.0.0"
     PORT: int = 8080
