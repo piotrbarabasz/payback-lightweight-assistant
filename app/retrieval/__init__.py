@@ -1,10 +1,12 @@
 """Retrieval utilities for the local synthetic product catalog."""
 
+from app.retrieval.base import ProductRetriever
 from app.retrieval.keyword_search import (
     keyword_match_score,
     product_search_text,
     search_products_by_keywords,
 )
+from app.retrieval.keyword_retriever import KeywordProductRetriever
 from app.retrieval.normalizer import QueryAnalysis, is_support_query, normalize_query
 from app.retrieval.scorer import calculate_final_score, build_recommendation_reason
 from app.retrieval.service import (
@@ -14,6 +16,8 @@ from app.retrieval.service import (
 )
 
 __all__ = [
+    "ProductRetriever",
+    "KeywordProductRetriever",
     "QueryAnalysis",
     "build_recommendation_reason",
     "calculate_final_score",
