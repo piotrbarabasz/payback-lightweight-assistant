@@ -14,12 +14,14 @@ The request path is intentionally lightweight:
 User query
 -> FastAPI endpoint
 -> deterministic intent detection
--> in-memory catalog retrieval
+-> configured in-memory retrieval backend
 -> rule-based scoring and ranking
 -> structured JSON response
 ```
 
-The MVP does not call external LLMs or embedding APIs during request processing.
+The default MVP path uses the `keyword` retrieval backend and does not call external LLMs or embedding APIs during request processing.
+
+Stage 7A also includes an optional `hybrid` backend for local experiments. It uses deterministic local hash embeddings and in-process cosine similarity only; it does not call Vertex AI, BigQuery, BigQuery Vector Search, or external model APIs.
 
 ## Performance-Oriented Design Decisions
 
@@ -52,7 +54,7 @@ For the current dataset size, in-memory search is faster and simpler than using 
 
 ### 3. Deterministic Scoring
 
-The retrieval engine uses deterministic scoring based on:
+The default `keyword` retrieval backend uses deterministic scoring based on:
 
 * product name matches,
 * category matches,
@@ -67,7 +69,18 @@ This makes the system predictable and explainable.
 
 Each recommendation can include a reason explaining why the product was selected.
 
-### 4. Lightweight Container
+### 4. Pluggable Retrieval Backends
+
+Stage 7A introduced a retrieval backend factory controlled by `RETRIEVAL_BACKEND`.
+
+Supported values:
+
+* `keyword`: default, low-cost deterministic keyword retrieval.
+* `hybrid`: local prototype combining keyword score, deterministic local semantic-like similarity, and existing business boosts.
+
+This allows local experimentation without making hybrid retrieval mandatory for Cloud Run.
+
+### 5. Lightweight Container
 
 The service is packaged as a Docker container based on Python 3.11 slim.
 
@@ -75,7 +88,7 @@ The container runs only the FastAPI application and its required dependencies.
 
 This keeps the runtime simple and suitable for Cloud Run.
 
-### 5. Serverless Deployment on Cloud Run
+### 6. Serverless Deployment on Cloud Run
 
 Cloud Run was selected because it is well suited for lightweight HTTP APIs.
 
@@ -117,6 +130,8 @@ Reason:
 
 Vertex AI is a good candidate for a production extension, especially for text embeddings and LLM-based intent detection, but it is intentionally not required for the current lightweight version.
 
+The local `hybrid` backend does not change this. It uses a deterministic local embedding provider and makes no Vertex AI calls.
+
 ### 3. No BigQuery Vector Search in the Default MVP
 
 BigQuery Vector Search is not used in the default MVP.
@@ -129,6 +144,8 @@ Reason:
 * no need to manage embedding generation and vector indexes for the MVP.
 
 BigQuery Vector Search would become useful when the product catalog grows beyond the size where simple in-memory search is appropriate.
+
+The local `hybrid` backend does not use BigQuery. It computes product embeddings and cosine similarity inside the FastAPI process for prototype-scale experiments.
 
 ### 4. No Persistent Database
 
@@ -173,12 +190,14 @@ Verified behaviors:
 The current implementation is expected to have low latency because it avoids:
 
 * LLM inference,
-* embedding generation,
+* external embedding generation,
 * external API calls,
 * database queries,
 * vector index calls.
 
 The main processing steps are local Python function calls over a small product catalog.
+
+When `RETRIEVAL_BACKEND=hybrid` is enabled locally, the service performs additional in-process hash embedding and cosine similarity work. This is acceptable for the small synthetic catalog but is not intended as a production vector search substitute.
 
 For the current MVP, this is a reasonable trade-off between capability, cost, and simplicity.
 
@@ -191,6 +210,8 @@ This means Cloud Run can scale horizontally by creating more container instances
 However, the current in-memory catalog approach is best suited for small or medium synthetic datasets.
 
 For larger production-scale catalogs, the retrieval layer should be moved to a managed search or vector retrieval backend.
+
+The current `hybrid` backend is a local prototype. It prepares the code structure for semantic retrieval, but it does not provide production-grade vector indexing or approximate nearest-neighbor search.
 
 ## Production Cost and Performance Extension
 
@@ -243,6 +264,8 @@ The current implementation prioritizes:
 
 It intentionally does not maximize semantic retrieval quality yet.
 
+The optional local `hybrid` backend improves experimentation with semantic-like signals, but it is deliberately not the default Cloud Run path.
+
 This is acceptable for the current lightweight MVP because the challenge focuses on demonstrating the backend core, intent routing, recommendation behavior, and cloud deployment readiness.
 
 ## Summary
@@ -253,7 +276,8 @@ The current MVP is optimized for a cost-efficient recruitment demo:
 * no expensive model calls in the request path,
 * no database dependency,
 * deterministic intent detection,
-* deterministic retrieval and ranking,
+* default deterministic keyword retrieval and ranking,
+* optional local hybrid retrieval for experiments,
 * explainable recommendation reasons,
 * successful deployed smoke test.
 

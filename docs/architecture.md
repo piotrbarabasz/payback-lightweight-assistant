@@ -35,13 +35,16 @@ flowchart LR
     INTENT --> ENT[Entity Extraction]
     INTENT --> DECISION[Next Best Action Decision]
 
-    DECISION -->|specific search| RETRIEVAL[Retrieval Engine]
-    DECISION -->|partner-specific| PARTNER_SEARCH[Partner-Specific Search]
+    DECISION -->|specific search| FACTORY[Retrieval Backend Factory]
+    DECISION -->|partner-specific| FACTORY
     DECISION -->|vague query| CLARIFY[Clarifying Question Generator]
     DECISION -->|support intent| SUPPORT[Support Routing]
 
-    RETRIEVAL --> CATALOG[(Synthetic Product Catalog)]
-    PARTNER_SEARCH --> CATALOG
+    FACTORY --> KEYWORD[Keyword Backend]
+    FACTORY --> HYBRID[Local Hybrid Backend]
+
+    KEYWORD --> CATALOG[(Synthetic Product Catalog)]
+    HYBRID --> CATALOG
 
     CATALOG --> DM[dm Catalog]
     CATALOG --> EDEKA[EDEKA Catalog]
@@ -152,9 +155,18 @@ This allows the retrieval engine to simulate cross-partner product discovery wit
 
 ### 5. Retrieval Engine
 
-The current retrieval engine is deterministic and lightweight.
+The retrieval engine is deterministic and lightweight by default.
 
-It uses:
+Stage 7A introduced a retrieval backend abstraction so the assistant can choose a retriever through configuration without changing the API schema.
+
+Available backends:
+
+| Backend | Default | Purpose |
+| ------- | ------- | ------- |
+| `keyword` | yes | Existing deterministic keyword retrieval with business boosts. |
+| `hybrid` | no | Local prototype combining keyword score, deterministic local semantic-like similarity, and existing business boosts. |
+
+The `keyword` backend uses:
 
 * query term matching,
 * product name matching,
@@ -167,7 +179,11 @@ It uses:
 * promotion boosts,
 * popularity boosts.
 
-The current retrieval approach is intentionally simple, explainable, and cost-efficient.
+The `hybrid` backend additionally builds deterministic product text, embeds queries and products with a local hash-based embedding provider, computes cosine similarity, and combines that semantic-like score with the keyword and business-rule signals.
+
+The local embedding provider does not call external APIs, does not download ML models, and is intended for tests and local experiments. It is not a production vector search implementation.
+
+The default retrieval approach remains intentionally simple, explainable, and cost-efficient.
 
 ### 6. Response Builder
 
@@ -244,6 +260,19 @@ Reason:
 * simple local and cloud deployment,
 * easy testability.
 
+### Pluggable Retrieval Backends
+
+Stage 7A introduced retrieval backends to separate assistant orchestration from retrieval implementation details.
+
+Reason:
+
+* preserve the existing keyword behavior as the default,
+* allow local hybrid retrieval experiments,
+* keep the API response schema stable,
+* prepare for future production retrieval backends without forcing new infrastructure into the MVP.
+
+The Cloud Run deployment can remain unchanged because `RETRIEVAL_BACKEND` defaults to `keyword`.
+
 ### Cloud Run Instead of GKE
 
 Cloud Run was selected for deployment instead of GKE or virtual machines.
@@ -259,6 +288,8 @@ Reason:
 ## Production Extension Architecture
 
 A production-grade version can extend the MVP with Vertex AI and BigQuery Vector Search.
+
+Stage 7A does not implement this production architecture. The current `hybrid` backend is local-only and uses deterministic hash embeddings.
 
 ```mermaid
 flowchart LR
@@ -331,7 +362,20 @@ A possible BigQuery table structure:
 
 ### Hybrid Retrieval
 
-A production retrieval engine should combine:
+The local Stage 7A hybrid retriever combines:
+
+* deterministic keyword matching,
+* local semantic-like similarity,
+* partner hints,
+* category hints,
+* price preferences,
+* promotions,
+* popularity,
+* business rules.
+
+A production retrieval engine could use the same high-level shape but replace local hash embeddings and in-memory search with managed vector infrastructure.
+
+It should combine:
 
 * semantic vector similarity,
 * keyword matching,

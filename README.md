@@ -4,7 +4,7 @@ A lightweight backend assistant API that receives a user query, detects the inte
 
 ## Current Stage
 
-This repository is currently at Stage 6. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, Stage 4 added a modular deterministic intent detection layer, Stage 5 added Docker and local deployment readiness, and Stage 6 adds minimal GCP Cloud Run deployment readiness.
+This repository is currently at Stage 7A. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, Stage 4 added a modular deterministic intent detection layer, Stage 5 added Docker and local deployment readiness, Stage 6 added minimal GCP Cloud Run deployment readiness, and Stage 7A adds retrieval backend abstraction with a local hybrid semantic retrieval prototype.
 
 ## Implemented
 
@@ -15,6 +15,8 @@ This repository is currently at Stage 6. Stage 1 established the backend foundat
 - Modular deterministic intent detection.
 - Language detection, entity extraction, partner hint detection, intent classification, specificity classification, next-best-action decisions, and clarifying question generation.
 - Deterministic keyword retrieval engine.
+- Pluggable retrieval backends with `keyword` as the default and `hybrid` available for local experiments.
+- Local deterministic embedding provider for tests and semantic-like retrieval experiments, with no external API calls.
 - Dockerfile, Docker Compose, runtime environment configuration, container health checks, and local smoke testing.
 - Parameterized GCP Cloud Run deployment scripts using Artifact Registry and `gcloud`.
 - Cloud Run smoke testing against a public HTTPS endpoint.
@@ -82,6 +84,19 @@ What was added:
 
 Retrieval details are documented in [docs/retrieval_engine.md](docs/retrieval_engine.md).
 
+## Stage 7A: Retrieval Backend Abstraction
+
+Stage 7A adds a pluggable retrieval backend architecture while keeping the public API response schema unchanged.
+
+Available backends:
+
+- `keyword`: default backend, using the existing deterministic keyword and business-rule scoring.
+- `hybrid`: local prototype that combines keyword scoring, local semantic-like similarity, and existing business boosts.
+
+The hybrid backend uses a deterministic local hash embedding provider. It does not call Vertex AI, BigQuery, BigQuery Vector Search, or any external model service.
+
+Semantic retrieval details are documented in [docs/semantic_retrieval.md](docs/semantic_retrieval.md).
+
 ## Stage 4: Intent Detection Module
 
 Stage 4 moves temporary route-level intent rules into a testable `app/intent/` package and keeps HTTP handlers thin.
@@ -142,6 +157,8 @@ Local Dockerized FastAPI app
 ```
 
 The current Cloud Run deployment still uses the synthetic catalog packaged inside the container. Cloud Run is configured with minimum instances set to `0` for cost efficiency. Vertex AI and BigQuery Vector Search are planned for later stages and are not included in Stage 6.
+
+Stage 7A does not require changing the Cloud Run deployment. If `RETRIEVAL_BACKEND` is not set, the service uses the default `keyword` backend and continues to run without Vertex AI or BigQuery.
 
 Quick deployment flow:
 
@@ -212,6 +229,21 @@ uvicorn app.main:app --reload
 Run the app:
 
 ```bash
+uvicorn app.main:app --reload
+```
+
+Run the app with the local hybrid retrieval prototype:
+
+Unix/macOS:
+
+```bash
+RETRIEVAL_BACKEND=hybrid uvicorn app.main:app --reload
+```
+
+Windows PowerShell:
+
+```powershell
+$env:RETRIEVAL_BACKEND = "hybrid"
 uvicorn app.main:app --reload
 ```
 
