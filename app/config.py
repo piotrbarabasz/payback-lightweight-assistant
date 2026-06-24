@@ -24,6 +24,17 @@ def _env_int(name: str, default: int) -> int:
         raise ValueError(f"{name} must be an integer") from exc
 
 
+def _env_choice(name: str, default: str, allowed_values: set[str]) -> str:
+    value = _env_str(name, default).lower()
+    if value not in allowed_values:
+        allowed = ", ".join(sorted(allowed_values))
+        raise ValueError(f"{name} must be one of: {allowed}")
+    return value
+
+
+SUPPORTED_RETRIEVAL_BACKENDS = {"hybrid", "keyword"}
+
+
 @dataclass(frozen=True)
 class Settings:
     APP_NAME: str = "PAYBACK Lightweight Assistant"
@@ -33,6 +44,7 @@ class Settings:
     PORT: int = 8080
     LOG_LEVEL: str = "info"
     CATALOG_PATH: str = "app/data/products.json"
+    RETRIEVAL_BACKEND: str = "keyword"
     DEFAULT_TOP_K: int = 5
     MAX_TOP_K: int = 20
 
@@ -46,6 +58,11 @@ class Settings:
             PORT=_env_int("PORT", cls.PORT),
             LOG_LEVEL=_env_str("LOG_LEVEL", cls.LOG_LEVEL),
             CATALOG_PATH=_env_str("CATALOG_PATH", cls.CATALOG_PATH),
+            RETRIEVAL_BACKEND=_env_choice(
+                "RETRIEVAL_BACKEND",
+                cls.RETRIEVAL_BACKEND,
+                SUPPORTED_RETRIEVAL_BACKENDS,
+            ),
             DEFAULT_TOP_K=_env_int("DEFAULT_TOP_K", cls.DEFAULT_TOP_K),
             MAX_TOP_K=_env_int("MAX_TOP_K", cls.MAX_TOP_K),
         )

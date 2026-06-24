@@ -1,3 +1,5 @@
+import pytest
+
 from app.config import get_settings
 
 
@@ -9,6 +11,7 @@ CONFIG_ENV_VARS = (
     "PORT",
     "LOG_LEVEL",
     "CATALOG_PATH",
+    "RETRIEVAL_BACKEND",
     "DEFAULT_TOP_K",
     "MAX_TOP_K",
 )
@@ -32,6 +35,7 @@ def test_default_settings_load_correctly(monkeypatch) -> None:
     assert settings.PORT == 8080
     assert settings.LOG_LEVEL == "info"
     assert settings.CATALOG_PATH == "app/data/products.json"
+    assert settings.RETRIEVAL_BACKEND == "keyword"
     assert settings.DEFAULT_TOP_K == 5
     assert settings.MAX_TOP_K == 20
 
@@ -60,6 +64,32 @@ def test_catalog_path_is_set(monkeypatch) -> None:
     clear_config_env(monkeypatch)
 
     assert get_settings().CATALOG_PATH.strip()
+
+
+def test_retrieval_backend_defaults_to_keyword(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+
+    assert get_settings().RETRIEVAL_BACKEND == "keyword"
+
+
+def test_retrieval_backend_accepts_hybrid(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("RETRIEVAL_BACKEND", "hybrid")
+    get_settings.cache_clear()
+
+    assert get_settings().RETRIEVAL_BACKEND == "hybrid"
+
+
+def test_retrieval_backend_rejects_unknown_value(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("RETRIEVAL_BACKEND", "semantic")
+    get_settings.cache_clear()
+
+    with pytest.raises(
+        ValueError,
+        match="RETRIEVAL_BACKEND must be one of: hybrid, keyword",
+    ):
+        get_settings()
 
 
 def test_environment_variables_override_port_and_environment(monkeypatch) -> None:
