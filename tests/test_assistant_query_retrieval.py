@@ -1,10 +1,33 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.config import get_settings
 from app.main import app
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def clear_settings_cache():
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+def test_assistant_query_uses_default_keyword_backend(monkeypatch) -> None:
+    monkeypatch.delenv("RETRIEVAL_BACKEND", raising=False)
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Show me headphones on Amazon", "top_k": 5},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["results"]
+    assert any(result["partner"] == "amazon" for result in data["results"])
 
 
 def test_german_diaper_query_returns_retrieval_results() -> None:
@@ -44,6 +67,22 @@ def test_assistant_query_uses_keyword_retrieval_backend(monkeypatch) -> None:
     data = response.json()
     assert data["results"]
     assert any(result["partner"] == "amazon" for result in data["results"])
+
+
+def test_assistant_query_uses_hybrid_retrieval_backend(monkeypatch) -> None:
+    monkeypatch.setenv("RETRIEVAL_BACKEND", "hybrid")
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Show me headphones on Amazon", "top_k": 5},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["results"]
+    assert any(result["partner"] == "amazon" for result in data["results"])
+    assert any("hybrid retrieval" in (result["reason"] or "") for result in data["results"])
 
 
 def test_pasta_dinner_query_returns_discovery_results() -> None:
