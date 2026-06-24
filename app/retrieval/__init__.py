@@ -10,6 +10,7 @@ from app.retrieval.keyword_search import (
 from app.retrieval.keyword_retriever import KeywordProductRetriever
 from app.retrieval.normalizer import QueryAnalysis, is_support_query, normalize_query
 from app.retrieval.scorer import calculate_final_score, build_recommendation_reason
+from app.retrieval.semantic import SemanticProductRetriever
 from app.retrieval.service import (
     category_hint_from_results,
     product_to_result,
@@ -20,6 +21,7 @@ __all__ = [
     "ProductRetriever",
     "KeywordProductRetriever",
     "QueryAnalysis",
+    "SemanticProductRetriever",
     "build_recommendation_reason",
     "calculate_final_score",
     "category_hint_from_results",
