@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.catalog.loader import load_products
 from app.intent.detector import with_clarifying_action
 from app.intent.decision import build_clarifying_question
-from app.retrieval import category_hint_from_results, retrieve_products
+from app.retrieval import category_hint_from_results, get_product_retriever, retrieve_products
 from app.schemas import (
     AssistantQueryRequest,
     AssistantQueryResponse,
@@ -28,11 +28,8 @@ def build_assistant_response(
             intent_result = _with_fallback_question(intent_result)
         return _response_from_intent_result(intent_result, results=[])
 
-    results = retrieve_products(
-        payload.query,
-        load_products(),
-        top_k=payload.top_k,
-    )
+    retriever = get_product_retriever()
+    results = retriever.retrieve(payload.query, load_products(), top_k=payload.top_k)
 
     if not results:
         return _response_from_intent_result(

@@ -1,6 +1,7 @@
 """Retrieval utilities for the local synthetic product catalog."""
 
 from app.retrieval.base import ProductRetriever
+from app.retrieval.factory import get_product_retriever
 from app.retrieval.keyword_search import (
     keyword_match_score,
     product_search_text,
@@ -22,6 +23,7 @@ __all__ = [
     "build_recommendation_reason",
     "calculate_final_score",
     "category_hint_from_results",
+    "get_product_retriever",
     "is_support_query",
     "keyword_match_score",
     "normalize_query",
