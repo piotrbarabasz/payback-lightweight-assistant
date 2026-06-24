@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.config import get_settings
 from app.retrieval.base import ProductRetriever
+from app.retrieval.hybrid import HybridProductRetriever
 from app.retrieval.keyword_retriever import KeywordProductRetriever
 
 
@@ -14,5 +15,5 @@ def get_product_retriever(backend_name: str | None = None) -> ProductRetriever:
     if selected_backend == "keyword":
         return KeywordProductRetriever()
     if selected_backend == "hybrid":
-        raise NotImplementedError("Hybrid retrieval backend is not implemented yet.")
+        return HybridProductRetriever()
     raise ValueError(f"Unsupported retrieval backend: {selected_backend}")

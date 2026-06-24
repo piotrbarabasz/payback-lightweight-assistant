@@ -2,6 +2,7 @@ import pytest
 
 from app.config import get_settings
 from app.retrieval.factory import get_product_retriever
+from app.retrieval.hybrid import HybridProductRetriever
 from app.retrieval.keyword_retriever import KeywordProductRetriever
 
 
@@ -34,9 +35,7 @@ def test_get_product_retriever_rejects_unsupported_backend() -> None:
         get_product_retriever("semantic")
 
 
-def test_get_product_retriever_marks_hybrid_as_not_implemented() -> None:
-    with pytest.raises(
-        NotImplementedError,
-        match="Hybrid retrieval backend is not implemented yet.",
-    ):
-        get_product_retriever("hybrid")
+def test_get_product_retriever_accepts_hybrid_backend_argument() -> None:
+    retriever = get_product_retriever("hybrid")
+
+    assert isinstance(retriever, HybridProductRetriever)

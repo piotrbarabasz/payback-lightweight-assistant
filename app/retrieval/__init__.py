@@ -2,6 +2,7 @@
 
 from app.retrieval.base import ProductRetriever
 from app.retrieval.factory import get_product_retriever
+from app.retrieval.hybrid import HybridProductRetriever
 from app.retrieval.keyword_search import (
     keyword_match_score,
     product_search_text,
@@ -19,6 +20,7 @@ from app.retrieval.service import (
 
 __all__ = [
     "ProductRetriever",
+    "HybridProductRetriever",
     "KeywordProductRetriever",
     "QueryAnalysis",
     "SemanticProductRetriever",
