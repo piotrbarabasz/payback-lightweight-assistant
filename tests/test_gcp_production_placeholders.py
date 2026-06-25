@@ -7,6 +7,14 @@ from app.retrieval.factory import get_product_retriever
 from app.retrieval.keyword_retriever import KeywordProductRetriever
 
 
+def test_google_cloud_dependencies_are_not_required() -> None:
+    with open("requirements.txt", encoding="utf-8") as requirements_file:
+        requirements = requirements_file.read()
+
+    assert "google-cloud-aiplatform" not in requirements
+    assert "google-cloud-bigquery" not in requirements
+
+
 def test_vertex_ai_embedding_provider_fails_clearly() -> None:
     provider = VertexAIEmbeddingProvider()
 

@@ -1,6 +1,10 @@
 import pytest
 
-from app.config import get_settings
+from app.config import (
+    SUPPORTED_INTENT_BACKENDS,
+    SUPPORTED_RETRIEVAL_BACKENDS,
+    get_settings,
+)
 
 
 CONFIG_ENV_VARS = (
@@ -80,6 +84,14 @@ def test_intent_backend_defaults_to_rules(monkeypatch) -> None:
     assert get_settings().INTENT_BACKEND == "rules"
 
 
+def test_supported_intent_backends_are_documented_placeholders() -> None:
+    assert SUPPORTED_INTENT_BACKENDS == {
+        "llm_placeholder",
+        "rules",
+        "vertex_placeholder",
+    }
+
+
 def test_intent_backend_accepts_vertex_placeholder(monkeypatch) -> None:
     clear_config_env(monkeypatch)
     monkeypatch.setenv("INTENT_BACKEND", "vertex_placeholder")
@@ -117,6 +129,14 @@ def test_retrieval_backend_accepts_hybrid(monkeypatch) -> None:
     get_settings.cache_clear()
 
     assert get_settings().RETRIEVAL_BACKEND == "hybrid"
+
+
+def test_supported_retrieval_backends_include_local_and_placeholder() -> None:
+    assert SUPPORTED_RETRIEVAL_BACKENDS == {
+        "bigquery_vector",
+        "hybrid",
+        "keyword",
+    }
 
 
 def test_retrieval_backend_accepts_bigquery_vector_placeholder(monkeypatch) -> None:

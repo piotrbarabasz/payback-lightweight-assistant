@@ -69,3 +69,17 @@ def test_get_product_retriever_accepts_bigquery_vector_backend_argument() -> Non
     retriever = get_product_retriever("bigquery_vector")
 
     assert isinstance(retriever, BigQueryVectorProductRetriever)
+
+
+def test_bigquery_vector_backend_argument_fails_when_used() -> None:
+    retriever = get_product_retriever("bigquery_vector")
+
+    assert isinstance(retriever, BigQueryVectorProductRetriever)
+    with pytest.raises(
+        NotImplementedError,
+        match=(
+            "BigQuery Vector Search retrieval is not implemented "
+            "in the MVP.*Stage 8"
+        ),
+    ):
+        retriever.retrieve(query="cheap pasta", products=[], top_k=3)
