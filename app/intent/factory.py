@@ -14,6 +14,6 @@ def get_intent_detector(backend_name: str | None = None) -> BaseIntentDetector:
     selected_backend = (backend_name or get_settings().INTENT_BACKEND).strip().lower()
     if selected_backend == "rules":
         return RuleBasedIntentDetector()
-    if selected_backend == "vertex_placeholder":
-        return VertexIntentDetector()
+    if selected_backend in {"llm_placeholder", "vertex_placeholder"}:
+        return VertexIntentDetector(backend_name=selected_backend)
     raise ValueError(f"Unsupported intent backend: {selected_backend}")

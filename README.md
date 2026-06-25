@@ -299,7 +299,7 @@ Runtime configuration is environment-based:
 | `PORT` | `8080` in Docker | Bind port used by container runtimes. |
 | `LOG_LEVEL` | `info` | Uvicorn log level. |
 | `CATALOG_PATH` | `app/data/products.json` | Local catalog JSON path. |
-| `INTENT_BACKEND` | `rules` | Intent detector selector. Supported values: `rules`, `vertex_placeholder`. The placeholder makes no external calls and raises `NotImplementedError` if used. |
+| `INTENT_BACKEND` | `rules` | Intent detector selector. Supported values: `rules`, `vertex_placeholder`, `llm_placeholder`. The placeholders make no external calls and raise `NotImplementedError` if used. |
 | `RETRIEVAL_BACKEND` | `keyword` | Retrieval backend selector. Supported values: `keyword`, `hybrid`, `bigquery_vector`. The `bigquery_vector` backend is a Stage 8 placeholder only and raises `NotImplementedError` if used. |
 | `DEFAULT_TOP_K` | `5` | Default assistant result count. |
 | `MAX_TOP_K` | `20` | Maximum assistant result count. |

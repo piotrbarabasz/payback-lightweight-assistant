@@ -88,14 +88,25 @@ def test_intent_backend_accepts_vertex_placeholder(monkeypatch) -> None:
     assert get_settings().INTENT_BACKEND == "vertex_placeholder"
 
 
+def test_intent_backend_accepts_llm_placeholder(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("INTENT_BACKEND", "llm_placeholder")
+    get_settings.cache_clear()
+
+    assert get_settings().INTENT_BACKEND == "llm_placeholder"
+
+
 def test_intent_backend_rejects_unknown_value(monkeypatch) -> None:
     clear_config_env(monkeypatch)
-    monkeypatch.setenv("INTENT_BACKEND", "llm")
+    monkeypatch.setenv("INTENT_BACKEND", "external_llm")
     get_settings.cache_clear()
 
     with pytest.raises(
         ValueError,
-        match="INTENT_BACKEND must be one of: rules, vertex_placeholder",
+        match=(
+            "INTENT_BACKEND must be one of: "
+            "llm_placeholder, rules, vertex_placeholder"
+        ),
     ):
         get_settings()
 

@@ -26,5 +26,6 @@ class BigQueryVectorProductRetriever(ProductRetriever):
     ) -> list[ProductResult]:
         raise NotImplementedError(
             "BigQuery Vector Search retrieval is not implemented in the MVP. "
+            "It is planned for Stage 8. "
             "Use the local keyword or hybrid retrievers instead."
         )

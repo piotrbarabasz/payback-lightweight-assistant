@@ -18,5 +18,6 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
     def embed_text(self, text: str) -> list[float]:
         raise NotImplementedError(
             "Vertex AI embeddings are not implemented in the MVP. "
+            "They are planned for Stage 8. "
             "Use the local deterministic embedding provider instead."
         )

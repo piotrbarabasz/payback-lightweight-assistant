@@ -12,7 +12,7 @@ def test_vertex_ai_embedding_provider_fails_clearly() -> None:
 
     with pytest.raises(
         NotImplementedError,
-        match="Vertex AI embeddings are not implemented in the MVP",
+        match="Vertex AI embeddings are not implemented in the MVP.*Stage 8",
     ):
         provider.embed_text("wireless headphones")
 
@@ -22,7 +22,10 @@ def test_bigquery_vector_retriever_fails_clearly() -> None:
 
     with pytest.raises(
         NotImplementedError,
-        match="BigQuery Vector Search retrieval is not implemented in the MVP",
+        match=(
+            "BigQuery Vector Search retrieval is not implemented "
+            "in the MVP.*Stage 8"
+        ),
     ):
         retriever.retrieve(
             query="show me cheap pasta",
@@ -37,7 +40,10 @@ def test_bigquery_vector_backend_selection_fails_clearly_when_used() -> None:
     assert isinstance(retriever, BigQueryVectorProductRetriever)
     with pytest.raises(
         NotImplementedError,
-        match="BigQuery Vector Search retrieval is not implemented in the MVP",
+        match=(
+            "BigQuery Vector Search retrieval is not implemented "
+            "in the MVP.*Stage 8"
+        ),
     ):
         retriever.retrieve(
             query="show me cheap pasta",
