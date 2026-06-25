@@ -12,13 +12,10 @@ class VertexIntentDetector:
     external API calls. It exists only to make the backend boundary explicit.
     """
 
-    def __init__(self, backend_name: str = "vertex_placeholder") -> None:
-        self.backend_name = backend_name
-
     def analyze(self, query: str) -> IntentDetectionResult:
         raise NotImplementedError(
-            f"INTENT_BACKEND={self.backend_name} is not implemented. "
-            "External Vertex AI or LLM intent detection is planned for Stage 8. "
+            "INTENT_BACKEND=vertex_placeholder is not implemented. "
+            "Vertex AI-backed intent detection is planned for Stage 8. "
             "Use INTENT_BACKEND=rules for the local deterministic MVP."
         )
 

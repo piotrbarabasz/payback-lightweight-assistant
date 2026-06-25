@@ -32,7 +32,7 @@ def _env_choice(name: str, default: str, allowed_values: set[str]) -> str:
     return value
 
 
-SUPPORTED_INTENT_BACKENDS = {"llm_placeholder", "rules", "vertex_placeholder"}
+SUPPORTED_INTENT_BACKENDS = {"rules", "vertex_placeholder"}
 SUPPORTED_RETRIEVAL_BACKENDS = {"bigquery_vector", "hybrid", "keyword"}
 
 

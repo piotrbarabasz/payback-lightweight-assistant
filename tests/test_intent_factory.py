@@ -47,13 +47,6 @@ def test_get_intent_detector_accepts_vertex_placeholder_backend_argument() -> No
     assert isinstance(detector, BaseIntentDetector)
 
 
-def test_get_intent_detector_accepts_llm_placeholder_backend_argument() -> None:
-    detector = get_intent_detector("llm_placeholder")
-
-    assert isinstance(detector, VertexIntentDetector)
-    assert isinstance(detector, BaseIntentDetector)
-
-
 def test_get_intent_detector_uses_configured_vertex_placeholder(monkeypatch) -> None:
     monkeypatch.setenv("INTENT_BACKEND", "vertex_placeholder")
 
@@ -63,8 +56,8 @@ def test_get_intent_detector_uses_configured_vertex_placeholder(monkeypatch) -> 
 
 
 def test_get_intent_detector_rejects_unsupported_backend() -> None:
-    with pytest.raises(ValueError, match="Unsupported intent backend: external_llm"):
-        get_intent_detector("external_llm")
+    with pytest.raises(ValueError, match="Unsupported intent backend: external_intent"):
+        get_intent_detector("external_intent")
 
 
 def test_rule_based_detector_preserves_german_search_behavior() -> None:
@@ -94,16 +87,6 @@ def test_vertex_placeholder_makes_no_external_call_and_fails_clearly() -> None:
     with pytest.raises(
         NotImplementedError,
         match="INTENT_BACKEND=vertex_placeholder is not implemented",
-    ):
-        detector.analyze("Show me headphones on Amazon")
-
-
-def test_llm_placeholder_makes_no_external_call_and_fails_clearly() -> None:
-    detector = get_intent_detector("llm_placeholder")
-
-    with pytest.raises(
-        NotImplementedError,
-        match="INTENT_BACKEND=llm_placeholder is not implemented",
     ):
         detector.analyze("Show me headphones on Amazon")
 

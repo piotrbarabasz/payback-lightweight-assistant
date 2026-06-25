@@ -1,9 +1,18 @@
 from fastapi.testclient import TestClient
+import pytest
 
+from app.config import get_settings
 from app.main import app
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def clear_settings_cache():
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_assistant_query_german_search_returns_results() -> None:
@@ -73,3 +82,19 @@ def test_assistant_query_vague_asks_clarifying_question_without_results() -> Non
     assert data["next_best_action"] == "ask_clarifying_question"
     assert data["clarifying_question"] is not None
     assert data["results"] == []
+
+
+def test_assistant_query_uses_configured_vertex_placeholder_backend(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("INTENT_BACKEND", "vertex_placeholder")
+    get_settings.cache_clear()
+
+    with pytest.raises(
+        NotImplementedError,
+        match="INTENT_BACKEND=vertex_placeholder is not implemented",
+    ):
+        client.post(
+            "/assistant/query",
+            json={"query": "Show me headphones on Amazon", "top_k": 5},
+        )
