@@ -32,6 +32,7 @@ def _env_choice(name: str, default: str, allowed_values: set[str]) -> str:
     return value
 
 
+SUPPORTED_INTENT_BACKENDS = {"rules", "vertex_placeholder"}
 SUPPORTED_RETRIEVAL_BACKENDS = {"hybrid", "keyword"}
 
 
@@ -44,6 +45,7 @@ class Settings:
     PORT: int = 8080
     LOG_LEVEL: str = "info"
     CATALOG_PATH: str = "app/data/products.json"
+    INTENT_BACKEND: str = "rules"
     RETRIEVAL_BACKEND: str = "keyword"
     DEFAULT_TOP_K: int = 5
     MAX_TOP_K: int = 20
@@ -58,6 +60,11 @@ class Settings:
             PORT=_env_int("PORT", cls.PORT),
             LOG_LEVEL=_env_str("LOG_LEVEL", cls.LOG_LEVEL),
             CATALOG_PATH=_env_str("CATALOG_PATH", cls.CATALOG_PATH),
+            INTENT_BACKEND=_env_choice(
+                "INTENT_BACKEND",
+                cls.INTENT_BACKEND,
+                SUPPORTED_INTENT_BACKENDS,
+            ),
             RETRIEVAL_BACKEND=_env_choice(
                 "RETRIEVAL_BACKEND",
                 cls.RETRIEVAL_BACKEND,

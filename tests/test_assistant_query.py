@@ -102,6 +102,71 @@ def test_comparison_query_uses_compare_products_action() -> None:
     assert data["specificity"] == "specific"
     assert data["next_best_action"] == "compare_products"
     assert data["results"]
+    assert data["comparison_summary"] is not None
+    assert "price" in data["comparison_criteria"]
+    assert "partner" in data["comparison_criteria"]
+    assert all(
+        "Included for comparison on partner" in result["reason"]
+        for result in data["results"]
+    )
+
+
+def test_comparison_query_with_multiple_partners_compares_returned_matches() -> None:
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Compare cheap diapers from dm and Amazon", "top_k": 5},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "comparison"
+    assert data["next_best_action"] == "compare_products"
+    assert data["partner_hint"] == "unknown"
+    assert data["results"]
+    assert data["comparison_summary"] is not None
+    assert "No returned matches for requested partner(s): amazon" in data[
+        "comparison_summary"
+    ]
+    assert all(result["category"] == "baby care" for result in data["results"])
+
+
+def test_german_comparison_query_returns_comparison_summary() -> None:
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Vergleiche g\u00fcnstige Windeln", "top_k": 3},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["language"] == "de"
+    assert data["intent"] == "comparison"
+    assert data["next_best_action"] == "compare_products"
+    assert data["entities"]["price_preference"] == "cheap"
+    assert data["comparison_summary"] is not None
+    assert "Cheapest returned option" in data["comparison_summary"]
+    assert data["comparison_criteria"] == [
+        "price",
+        "partner",
+        "category",
+        "promotion_status",
+        "relevance_score",
+    ]
+
+
+def test_partner_price_question_is_treated_as_comparison() -> None:
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Which partner has cheaper pasta dinner products?", "top_k": 4},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "comparison"
+    assert data["next_best_action"] == "compare_products"
+    assert data["entities"]["price_preference"] == "cheap"
+    assert data["results"]
+    assert data["comparison_summary"] is not None
+    assert "pasta and grains" in data["comparison_summary"]
 
 
 def test_explicit_partner_query_uses_partner_specific_search() -> None:

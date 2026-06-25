@@ -1,26 +1,56 @@
 # PAYBACK Lightweight Assistant
 
-A lightweight backend assistant API that receives a user query, detects the intended action, and returns either product recommendations or a clarifying question.
+A lightweight backend assistant API for a recruitment challenge.
+It accepts a raw user query and routes it deterministically.
+The current MVP returns product recommendations, comparison responses, support routing, or a clarifying question.
+It uses a local synthetic catalog instead of real partner integrations.
+It runs locally with FastAPI and can be deployed to Cloud Run.
+The code is intentionally scoped for reproducibility, reviewability, and low operational overhead.
 
 ## Current Stage
 
-This repository is currently at Stage 7A. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, Stage 4 added a modular deterministic intent detection layer, Stage 5 added Docker and local deployment readiness, Stage 6 added minimal GCP Cloud Run deployment readiness, and Stage 7A adds retrieval backend abstraction with a local hybrid semantic retrieval prototype.
+This repository is currently at Stage 7B. Stage 1 established the backend foundation, Stage 2 added a synthetic product catalog, Stage 3 added deterministic keyword retrieval, Stage 4 added a modular deterministic intent detection layer, Stage 5 added Docker and local deployment readiness, Stage 6 added minimal GCP Cloud Run deployment readiness, Stage 7A added retrieval backend abstraction with a local hybrid retrieval prototype, and Stage 7B focuses on documentation cleanup, production-readiness hygiene, pluggable architecture clarity, and evaluation readiness.
 
-## Implemented
+## Implemented vs Not Implemented
 
-- MVP scope definition.
-- API contract.
-- Pydantic API schemas.
-- FastAPI health endpoint and assistant endpoint.
-- Modular deterministic intent detection.
-- Language detection, entity extraction, partner hint detection, intent classification, specificity classification, next-best-action decisions, and clarifying question generation.
-- Deterministic keyword retrieval engine.
-- Pluggable retrieval backends with `keyword` as the default and `hybrid` available for local experiments.
-- Local deterministic embedding provider for tests and semantic-like retrieval experiments, with no external API calls.
-- Dockerfile, Docker Compose, runtime environment configuration, container health checks, and local smoke testing.
-- Parameterized GCP Cloud Run deployment scripts using Artifact Registry and `gcloud`.
-- Cloud Run smoke testing against a public HTTPS endpoint.
-- Tests for API behavior, schemas, catalog generation, loading, validation, filters, and retrieval.
+### Implemented
+
+- FastAPI backend.
+- Local synthetic product catalog.
+- Pluggable intent detector backend with rule-based detection as the default.
+- Rule-based language and intent detection.
+- Local keyword retrieval.
+- Optional local hybrid retrieval prototype.
+- Docker and Docker Compose support.
+- Cloud Run deployment scripts.
+- Demo script and smoke tests.
+- Pydantic API schemas, health checks, and catalog preview endpoints.
+
+### Not Implemented
+
+- Vertex AI embeddings.
+- BigQuery product catalog.
+- BigQuery Vector Search.
+- Real partner API integrations.
+- Real LLM-based agent loop.
+- Conversation memory.
+- Production authentication, rate limiting, and monitoring.
+
+## Design Trade-offs
+
+- Deterministic routing is used instead of an LLM-based agent loop to keep latency low, costs predictable, and behavior reproducible.
+- A local synthetic catalog is used instead of real partner APIs to keep the challenge self-contained and easy to run.
+- Cloud Run readiness is implemented instead of a full GCP-native data stack so the repository stays lightweight while still showing deployment competence.
+- The retrieval and intent layers are pluggable so future Vertex AI or BigQuery-backed components can be added without changing the public API contract.
+
+## Known Limitations
+
+- No real partner API integrations are implemented.
+- No Vertex AI embeddings or managed LLM calls are implemented.
+- No BigQuery product catalog or BigQuery Vector Search is implemented.
+- No conversation memory, production authentication, rate limiting, or monitoring is implemented.
+- The catalog is synthetic and intentionally small.
+- The current assistant is deterministic rather than generative.
 
 ## Architecture Overview
 
@@ -30,6 +60,54 @@ User query
 -> Decision Layer
 -> Retrieval Engine
 -> Product Results or Clarifying Question
+```
+
+## Stage 7B: Documentation and Production-Readiness Cleanup
+
+Stage 7B does not add new product capabilities. It aligns the docs and repository narrative with the actual implementation and prepares the project for review.
+
+This stage focuses on:
+
+- honest implementation status in the documentation,
+- a clear split between the local MVP and future production work,
+- pluggable architecture language that matches the code,
+- evaluation-ready setup instructions and commands,
+- reviewer-friendly scope boundaries.
+
+The current runtime remains local-first and deterministic. The service uses a FastAPI backend, synthetic catalog data, rule-based intent handling, and local retrieval backends. Production GCP components such as Vertex AI, BigQuery, and real partner integrations are future work only.
+
+The future GCP extension plan is documented in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
+
+## How to Evaluate This Challenge
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+Run the API locally:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Run the demo / smoke test:
+
+```bash
+python scripts/smoke_test_api.py
+```
+
+Optionally build the Docker image:
+
+```bash
+docker build -t payback-lightweight-assistant .
 ```
 
 ## Stage 2: Synthetic Product Catalog
@@ -156,7 +234,7 @@ Local Dockerized FastAPI app
 -> smoke test
 ```
 
-The current Cloud Run deployment still uses the synthetic catalog packaged inside the container. Cloud Run is configured with minimum instances set to `0` for cost efficiency. Vertex AI and BigQuery Vector Search are planned for later stages and are not included in Stage 6.
+When deployed to Cloud Run, the current service still uses the synthetic catalog packaged inside the container. The deployment script configures minimum instances as `0` for cost efficiency. Vertex AI and BigQuery Vector Search are planned for later stages and are not included in Stage 6.
 
 Stage 7A does not require changing the Cloud Run deployment. If `RETRIEVAL_BACKEND` is not set, the service uses the default `keyword` backend and continues to run without Vertex AI or BigQuery.
 
@@ -177,14 +255,6 @@ bash infra/gcp/deploy_cloud_run.sh
 bash infra/gcp/smoke_test_deployed_api.sh
 ```
 
-## Not Implemented Yet
-
-- Vertex AI embeddings.
-- BigQuery product catalog.
-- BigQuery Vector Search.
-- LLM-based intent detection.
-- Real partner API integrations.
-
 ## Configuration
 
 Runtime configuration is environment-based:
@@ -198,6 +268,7 @@ Runtime configuration is environment-based:
 | `PORT` | `8080` in Docker | Bind port used by container runtimes. |
 | `LOG_LEVEL` | `info` | Uvicorn log level. |
 | `CATALOG_PATH` | `app/data/products.json` | Local catalog JSON path. |
+| `INTENT_BACKEND` | `rules` | Intent detector selector. Supported values: `rules`, `vertex_placeholder`. The placeholder makes no external calls and raises `NotImplementedError` if used. |
 | `RETRIEVAL_BACKEND` | `keyword` | Retrieval backend selector. Supported values: `keyword`, `hybrid`. |
 | `DEFAULT_TOP_K` | `5` | Default assistant result count. |
 | `MAX_TOP_K` | `20` | Maximum assistant result count. |
@@ -339,6 +410,8 @@ curl -X POST "http://127.0.0.1:8000/assistant/query" \
 Example queries:
 
 - `Bitte zeige mir Angebote für günstige Windeln`
+- `Compare cheap diapers from dm and Amazon`
+- `Which partner has cheaper pasta dinner products?`
 - `I need stuff for a pasta dinner`
 - `Show me headphones on Amazon`
 - `Meine PAYBACK Punkte fehlen`
@@ -373,9 +446,18 @@ Example response:
       "score": 0.4396,
       "reason": "Matched query terms in product tags and description. Boosted for category hint, cheap price preference, promotion, popularity."
     }
-  ]
+  ],
+  "comparison_summary": null,
+  "comparison_criteria": []
 }
 ```
+
+Comparison queries return `intent: comparison` and
+`next_best_action: compare_products`. Their results keep the normal product
+result shape and add comparison-oriented reasons plus response-level
+`comparison_summary` and `comparison_criteria` fields. The summary uses only
+available catalog fields such as price, partner, category, promotion status,
+and relevance score.
 
 ## Planned Next Stages
 

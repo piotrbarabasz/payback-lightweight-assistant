@@ -1,16 +1,17 @@
-# Cloud Run Demo Results
+# Demo Results
 
-This document summarizes the deployed API smoke test results for the `payback-lightweight-assistant` service.
+This document summarizes the current API demo behavior for the lightweight assistant.
 
-The goal of this demo is to verify that the lightweight assistant API works correctly after deployment to Google Cloud Run and can handle multiple user intents, languages, partner hints, and response types.
+The service is local-first and deterministic. The same code path is used for local development and the Cloud Run deployment. It does not rely on Vertex AI, BigQuery, BigQuery Vector Search, or real partner API integrations.
 
 ## Deployment Summary
 
-The application was containerized, built with Google Cloud Build, pushed to Artifact Registry, and deployed to Google Cloud Run.
+- Docker image built locally.
+- Image pushed to Artifact Registry.
+- Service deployed to Cloud Run.
+- Smoke-tested through the public HTTP endpoint.
 
-## Cloud Run Service
-
-Service name:
+Cloud Run service:
 
 ```text
 payback-lightweight-assistant
@@ -22,56 +23,20 @@ Region:
 europe-west1
 ```
 
-Cloud Run URL:
-
-```text
-https://payback-lightweight-assistant-62esvjlc2q-ew.a.run.app
-```
-
 ## Verified Endpoints
 
-The deployed service was verified using the smoke test script:
+| Endpoint | Method | Result |
+| --- | ---: | ---: |
+| `/health` | GET | 200 OK |
+| `/assistant/query` | POST | 200 OK |
 
-```bash
-bash infra/gcp/smoke_test_deployed_api.sh
-```
-
-The following endpoints were tested successfully:
-
-| Endpoint           | Method | Result |
-| ------------------ | -----: | -----: |
-| `/health`          |    GET | 200 OK |
-| `/assistant/query` |   POST | 200 OK |
-
-## Health Check Result
-
-Request:
-
-```http
-GET /health
-```
-
-Response:
-
-```json
-{
-  "status": "ok",
-  "service": "payback-lightweight-assistant",
-  "environment": "gcp-cloud-run"
-}
-```
-
-## Demo Query 1: German Search Query
+## Query 1: German Specific Search
 
 User query:
 
 ```text
-Bitte zeige mir Angebote für günstige Windeln
+Bitte zeige mir Angebote fuer guenstige Windeln
 ```
-
-Expected behavior:
-
-The assistant should detect a German search intent, understand that the user is looking for cheap baby care products, and route the query to the most relevant partner catalog.
 
 Observed response summary:
 
@@ -102,23 +67,13 @@ Top recommendation:
 }
 ```
 
-Result:
-
-```text
-PASSED
-```
-
-## Demo Query 2: English Discovery Query
+## Query 2: English Discovery / Broad Query
 
 User query:
 
 ```text
 I need stuff for a pasta dinner
 ```
-
-Expected behavior:
-
-The assistant should detect a discovery-style query, infer the dinner occasion, identify the relevant grocery/pasta category, and search the EDEKA catalog.
 
 Observed response summary:
 
@@ -149,23 +104,40 @@ Top recommendation:
 }
 ```
 
-Result:
+Note:
 
 ```text
-PASSED
+This wording is close to the vague boundary. Shortening it to "Something nice" returns a clarifying question instead of catalog results.
 ```
 
-## Demo Query 3: Navigational Partner-Specific Query
+## Query 3: German Support Query
+
+User query:
+
+```text
+Meine PAYBACK Punkte fehlen
+```
+
+Observed response summary:
+
+```json
+{
+  "language": "de",
+  "intent": "customer_support",
+  "specificity": "specific",
+  "next_best_action": "route_to_support",
+  "partner_hint": "unknown",
+  "results": []
+}
+```
+
+## Query 4: Partner-Specific Navigational Query
 
 User query:
 
 ```text
 Show me headphones on Amazon
 ```
-
-Expected behavior:
-
-The assistant should detect a partner-specific navigational query and route the search to the Amazon catalog.
 
 Observed response summary:
 
@@ -195,94 +167,43 @@ Top recommendation:
 }
 ```
 
-Result:
-
-```text
-PASSED
-```
-
-## Demo Query 4: Customer Support Intent
+## Query 5: Comparison Query
 
 User query:
 
 ```text
-Meine PAYBACK Punkte fehlen
+Compare cheap diapers from dm and Amazon
 ```
-
-Expected behavior:
-
-The assistant should detect a German customer support intent and avoid returning product recommendations.
 
 Observed response summary:
 
 ```json
 {
-  "language": "de",
-  "intent": "customer_support",
+  "language": "en",
+  "intent": "comparison",
   "specificity": "specific",
-  "next_best_action": "route_to_support",
+  "next_best_action": "compare_products",
   "partner_hint": "unknown",
-  "results": []
+  "comparison_summary": "Compared returned products by partner using price, category, promotion status, and relevance score.",
+  "comparison_criteria": [
+    "price",
+    "partner",
+    "category",
+    "promotion_status",
+    "relevance_score"
+  ]
 }
-```
-
-Result:
-
-```text
-PASSED
-```
-
-## Demo Query 5: Vague Query Requiring Clarification
-
-User query:
-
-```text
-Something nice
-```
-
-Expected behavior:
-
-The assistant should detect that the request is vague and ask a clarifying question instead of returning weak or random recommendations.
-
-Observed response summary:
-
-```json
-{
-  "language": "unknown",
-  "intent": "unknown",
-  "specificity": "vague",
-  "next_best_action": "ask_clarifying_question",
-  "clarifying_question": "Are you looking for groceries, drugstore items, or general products?",
-  "partner_hint": "unknown",
-  "results": []
-}
-```
-
-Result:
-
-```text
-PASSED
-```
-
-## Final Smoke Test Result
-
-The deployed API smoke test completed successfully.
-
-```text
-Deployed API smoke test passed
 ```
 
 ## Conclusion
 
-The deployed Cloud Run service successfully handles:
+The current API demo covers:
 
-* health check verification,
-* German search intent,
-* English discovery intent,
-* partner-specific routing,
-* customer support routing,
-* vague query clarification,
-* structured JSON responses,
-* cross-partner recommendation behavior.
+- German product search,
+- English discovery,
+- German customer support routing,
+- partner-specific navigational search,
+- comparison routing with summary fields,
+- clarification behavior for vague queries.
 
-The Cloud Run deployment is therefore verified as working for the current MVP scope.
+This is a lightweight MVP demo, not a managed production benchmark. The response behavior comes from the local deterministic backend and the Cloud Run deployment uses the same code path.

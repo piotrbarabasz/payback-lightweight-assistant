@@ -222,6 +222,8 @@ class AssistantQueryResponse(APIModel):
     partner_hint: Partner | None = None
     entities: QueryEntities
     results: list[ProductResult] = Field(default_factory=list)
+    comparison_summary: str | None = None
+    comparison_criteria: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def require_clarifying_question_for_clarification(self) -> AssistantQueryResponse:

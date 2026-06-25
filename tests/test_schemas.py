@@ -164,6 +164,26 @@ def test_assistant_query_response_accepts_clarifying_question_response() -> None
     assert response.next_best_action == NextBestAction.ASK_CLARIFYING_QUESTION
     assert response.clarifying_question is not None
     assert response.results == []
+    assert response.comparison_summary is None
+    assert response.comparison_criteria == []
+
+
+def test_assistant_query_response_accepts_comparison_metadata() -> None:
+    response = AssistantQueryResponse(
+        query="Compare cheap diapers from dm and Amazon",
+        language=Language.EN,
+        intent=Intent.COMPARISON,
+        specificity=Specificity.SPECIFIC,
+        next_best_action=NextBestAction.COMPARE_PRODUCTS,
+        partner_hint=Partner.UNKNOWN,
+        entities=QueryEntities(product_category="baby care", price_preference="cheap"),
+        results=[],
+        comparison_summary="Compared returned products by partner using price.",
+        comparison_criteria=["price", "partner"],
+    )
+
+    assert response.comparison_summary is not None
+    assert response.comparison_criteria == ["price", "partner"]
 
 
 def test_intent_detection_result_accepts_internal_decision_output() -> None:

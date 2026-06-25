@@ -21,6 +21,13 @@ User query
 
 The FastAPI route stays thin. Pure intent analysis lives in `app/intent/service.py`; assistant orchestration lives in `app/assistant/service.py`, which combines Stage 4 intent detection with retrieval results when retrieval is appropriate.
 
+For `compare_products` actions, assistant orchestration keeps retrieval broad
+enough to compare partners instead of applying only the first partner hint. The
+returned `ProductResult` objects remain lightweight, while their `reason`
+fields and the response-level `comparison_summary` explain the comparison using
+available fields: price, partner, category, promotion status, and relevance
+score.
+
 ## 3. Searchable Product Fields
 
 Keyword search uses these `Product` fields:

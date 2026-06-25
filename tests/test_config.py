@@ -11,6 +11,7 @@ CONFIG_ENV_VARS = (
     "PORT",
     "LOG_LEVEL",
     "CATALOG_PATH",
+    "INTENT_BACKEND",
     "RETRIEVAL_BACKEND",
     "DEFAULT_TOP_K",
     "MAX_TOP_K",
@@ -35,6 +36,7 @@ def test_default_settings_load_correctly(monkeypatch) -> None:
     assert settings.PORT == 8080
     assert settings.LOG_LEVEL == "info"
     assert settings.CATALOG_PATH == "app/data/products.json"
+    assert settings.INTENT_BACKEND == "rules"
     assert settings.RETRIEVAL_BACKEND == "keyword"
     assert settings.DEFAULT_TOP_K == 5
     assert settings.MAX_TOP_K == 20
@@ -70,6 +72,32 @@ def test_retrieval_backend_defaults_to_keyword(monkeypatch) -> None:
     clear_config_env(monkeypatch)
 
     assert get_settings().RETRIEVAL_BACKEND == "keyword"
+
+
+def test_intent_backend_defaults_to_rules(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+
+    assert get_settings().INTENT_BACKEND == "rules"
+
+
+def test_intent_backend_accepts_vertex_placeholder(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("INTENT_BACKEND", "vertex_placeholder")
+    get_settings.cache_clear()
+
+    assert get_settings().INTENT_BACKEND == "vertex_placeholder"
+
+
+def test_intent_backend_rejects_unknown_value(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("INTENT_BACKEND", "llm")
+    get_settings.cache_clear()
+
+    with pytest.raises(
+        ValueError,
+        match="INTENT_BACKEND must be one of: rules, vertex_placeholder",
+    ):
+        get_settings()
 
 
 def test_retrieval_backend_accepts_hybrid(monkeypatch) -> None:

@@ -18,6 +18,7 @@ The service supports multiple query types, including:
 
 * direct product search,
 * discovery-style shopping requests,
+* comparison requests,
 * partner-specific navigational searches,
 * customer support routing,
 * vague queries requiring clarification.
@@ -61,11 +62,13 @@ flowchart LR
     RESPONSE --> U
 ```
 
-## Runtime Deployment Architecture
+The current implementation is local-first and deterministic. The hybrid retriever is a local prototype only; it does not depend on Vertex AI, BigQuery, or any hosted model service.
+
+## Current Runtime Deployment Architecture
 
 ```mermaid
 flowchart LR
-    DEV[Developer / Cloud Shell] --> BUILD[Google Cloud Build]
+    DEV[Developer / Local Machine or Cloud Shell] --> BUILD[Docker Build]
     BUILD --> IMAGE[Artifact Registry Docker Image]
     IMAGE --> RUN[Cloud Run Service]
     RUN --> API[FastAPI Application]
@@ -76,6 +79,8 @@ flowchart LR
 
     SMOKE[Smoke Test Script] --> RUN
 ```
+
+This reflects the current Docker and Cloud Run deployment path. The checked-in service still uses the synthetic catalog packaged with the application.
 
 ## Main Components
 
@@ -127,6 +132,7 @@ Possible next best actions:
 | ------------------------- | ---------------------------------------------------- |
 | `search_catalog`          | Search across partner catalogs                       |
 | `partner_specific_search` | Search within a specific partner ecosystem           |
+| `compare_products`        | Return catalog results with comparison summary fields |
 | `ask_clarifying_question` | Return a clarifying question instead of weak results |
 | `route_to_support`        | Route the user to customer support flow              |
 
@@ -197,7 +203,8 @@ The assistant returns a structured JSON response containing:
 * clarifying question if needed,
 * partner hint,
 * extracted entities,
-* ranked product recommendations.
+* ranked product recommendations,
+* optional comparison summary and criteria for comparison intent.
 
 Example response shape:
 
@@ -217,7 +224,9 @@ Example response shape:
     "dietary_preference": null,
     "brand": null
   },
-  "results": []
+  "results": [],
+  "comparison_summary": null,
+  "comparison_criteria": []
 }
 ```
 
@@ -227,12 +236,15 @@ The current deployment uses the following Google Cloud services:
 
 | Service           | Role                                                    |
 | ----------------- | ------------------------------------------------------- |
-| Cloud Build       | Builds the Docker image in GCP                          |
 | Artifact Registry | Stores the Docker image                                 |
 | Cloud Run         | Runs the FastAPI container as a serverless HTTP service |
 | Cloud Logging     | Stores runtime logs from Cloud Run                      |
 
-The deployed service is available as a public HTTPS endpoint on Cloud Run.
+The build step is performed locally with Docker before pushing the image to Artifact Registry.
+
+After deployment, the service is available as a public HTTPS endpoint on Cloud Run.
+
+This is deployment plumbing, not the future production retrieval architecture. It keeps the current MVP portable while allowing a later swap to managed GCP services.
 
 ## Current MVP Design Decisions
 
@@ -285,11 +297,11 @@ Reason:
 * lower operational overhead,
 * suitable for lightweight APIs and demos.
 
-## Production Extension Architecture
+## Future GCP Production Architecture
 
-A production-grade version can extend the MVP with Vertex AI and BigQuery Vector Search.
+Future production work can extend the MVP with Vertex AI and BigQuery Vector Search.
 
-Stage 7A does not implement this production architecture. The current `hybrid` backend is local-only and uses deterministic hash embeddings.
+Stage 7B does not implement this production architecture. The current `hybrid` backend is local-only and uses deterministic hash embeddings.
 
 ```mermaid
 flowchart LR
@@ -397,9 +409,11 @@ The current MVP does not include:
 * user history,
 * personalization,
 * Vertex AI embeddings,
+* BigQuery product storage,
 * BigQuery Vector Search,
 * LLM-based intent classification,
 * authentication,
+* rate limiting,
 * advanced observability dashboards.
 
 These limitations are intentional for the lightweight MVP scope.
@@ -414,9 +428,9 @@ The current architecture provides a complete lightweight assistant backend with:
 * cross-partner retrieval,
 * structured JSON responses,
 * Docker containerization,
-* Cloud Build pipeline,
+* local Docker build and Artifact Registry push,
 * Artifact Registry image storage,
 * Cloud Run deployment,
-* deployed smoke test verification.
+* local and deployed smoke test support.
 
 The architecture is intentionally simple, explainable, and cost-efficient, while leaving a clear path toward a production-grade GCP-native implementation using Vertex AI and BigQuery Vector Search.

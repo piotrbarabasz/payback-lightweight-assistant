@@ -50,6 +50,11 @@ COMPARISON_PHRASES = {
     "guenstiger als",
     "gunstiger als",
     "g\u00fcnstiger als",
+    "which partner has cheaper",
+    "which partner is cheaper",
+    "welcher partner hat guenstigere",
+    "welcher partner hat gunstigere",
+    "welcher partner hat g\u00fcnstigere",
 }
 
 DISCOVERY_WORDS = {

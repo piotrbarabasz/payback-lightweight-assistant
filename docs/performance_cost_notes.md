@@ -6,7 +6,7 @@ The system was designed as a lightweight backend API for a recruitment challenge
 
 ## Current Runtime Model
 
-The current version runs as a containerized FastAPI application deployed to Google Cloud Run.
+The current version runs as a containerized FastAPI application and is ready to deploy to Google Cloud Run using the included scripts.
 
 The request path is intentionally lightweight:
 
@@ -160,17 +160,17 @@ Reason:
 
 This reduces both cost and complexity.
 
-## Cloud Deployment Verification
+## Cloud Deployment Verification Flow
 
-The service was deployed to Google Cloud Run and verified with a deployed smoke test.
+The repository includes a Cloud Run deployment path and smoke-test script for verifying a deployed service.
 
-Verified service URL:
+Example service URL format:
 
 ```text
-https://payback-lightweight-assistant-62esvjlc2q-ew.a.run.app
+https://<cloud-run-service-url>
 ```
 
-Smoke test result:
+Expected smoke test result:
 
 ```text
 Deployed API smoke test passed
@@ -200,6 +200,57 @@ The main processing steps are local Python function calls over a small product c
 When `RETRIEVAL_BACKEND=hybrid` is enabled locally, the service performs additional in-process hash embedding and cosine similarity work. This is acceptable for the small synthetic catalog but is not intended as a production vector search substitute.
 
 For the current MVP, this is a reasonable trade-off between capability, cost, and simplicity.
+
+## Optional Local Load Test
+
+A lightweight sequential load test is available at [`scripts/load_test_api.py`](scripts/load_test_api.py).
+
+It can target:
+
+- a local FastAPI instance,
+- a deployed Cloud Run URL,
+- any other HTTP endpoint that exposes `POST /assistant/query`.
+
+Run it with a local default base URL:
+
+```bash
+python scripts/load_test_api.py
+```
+
+Or point it at a specific endpoint:
+
+```bash
+python scripts/load_test_api.py --base-url http://127.0.0.1:8080 --requests 100
+```
+
+You can also set environment variables:
+
+Windows PowerShell:
+
+```powershell
+$env:API_BASE_URL = "https://your-service-url"
+$env:LOAD_TEST_REQUESTS = "100"
+python scripts/load_test_api.py
+```
+
+The script reports:
+
+- request count,
+- success count,
+- error count,
+- average latency,
+- p50 latency,
+- p95 latency,
+- p99 latency.
+
+Interpretation:
+
+- lower latency is better,
+- a non-zero error count means the service failed some requests,
+- compare results only within similar environments and request mixes,
+- use local and Cloud Run runs as directional checks, not as a formal benchmark.
+
+This repository does not include a managed benchmark service or a published production load test result. Any benchmark numbers must come from running the script against your own environment.
 
 ## Scalability Considerations
 
@@ -272,13 +323,13 @@ This is acceptable for the current lightweight MVP because the challenge focuses
 
 The current MVP is optimized for a cost-efficient recruitment demo:
 
-* FastAPI backend deployed on Cloud Run,
+* Cloud Run-ready FastAPI backend,
 * no expensive model calls in the request path,
 * no database dependency,
 * deterministic intent detection,
 * default deterministic keyword retrieval and ranking,
 * optional local hybrid retrieval for experiments,
 * explainable recommendation reasons,
-* successful deployed smoke test.
+* local and deployed smoke-test scripts.
 
 Vertex AI and BigQuery Vector Search are recommended as future production extensions, not as mandatory dependencies for the lightweight MVP.

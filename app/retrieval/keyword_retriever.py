@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.partners import products_for_partner_hint
 from app.retrieval.keyword_search import search_products_by_keywords
 from app.retrieval.normalizer import QueryAnalysis, normalize_query
 from app.retrieval.results import product_to_result
@@ -31,12 +32,13 @@ class KeywordProductRetriever:
         partner_hint = analysis.partner_hint
         category_hints = list(analysis.category_hints)
         price_preference = analysis.price_preference
+        candidate_products = products_for_partner_hint(products, partner_hint)
 
         keyword_results = search_products_by_keywords(
             query=query,
-            products=products,
-            top_k=len(products) or top_k,
-            partner_hint=partner_hint,
+            products=candidate_products,
+            top_k=len(candidate_products) or top_k,
+            partner_hint=None,
             category_hints=None,
             available_only=True,
         )
