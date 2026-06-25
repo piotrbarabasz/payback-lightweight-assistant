@@ -16,4 +16,8 @@ def get_product_retriever(backend_name: str | None = None) -> ProductRetriever:
         return KeywordProductRetriever()
     if selected_backend == "hybrid":
         return HybridProductRetriever()
+    if selected_backend == "bigquery_vector":
+        from app.retrieval.backends.bigquery_vector import BigQueryVectorProductRetriever
+
+        return BigQueryVectorProductRetriever()
     raise ValueError(f"Unsupported retrieval backend: {selected_backend}")

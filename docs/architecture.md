@@ -1,8 +1,10 @@
 # Architecture
 
-This document describes the current architecture of the `payback-lightweight-assistant` backend service.
+This document describes the current Stage 7B architecture of the `payback-lightweight-assistant` backend service.
 
 The application is a lightweight FastAPI microservice that receives a raw user query and returns a structured response containing either recommended products or a clarifying question.
+
+Stage 7B is a completed local MVP and pre-Stage 8 readiness state. The current runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop.
 
 ## High-Level Goal
 
@@ -27,7 +29,7 @@ The service supports multiple query types, including:
 
 ```mermaid
 flowchart LR
-    U[User / Client App] --> API[FastAPI Service on Cloud Run]
+    U[User / Client App] --> API[FastAPI Service - local or containerized]
 
     API --> EP[POST /assistant/query]
 
@@ -62,7 +64,7 @@ flowchart LR
     RESPONSE --> U
 ```
 
-The current implementation is local-first and deterministic. The hybrid retriever is a local prototype only; it does not depend on Vertex AI, BigQuery, or any hosted model service.
+The current implementation is local-first and deterministic. The same FastAPI app can run locally, in Docker, or on Cloud Run through the provided scripts. The hybrid retriever is a local prototype only; it does not depend on Vertex AI, BigQuery, BigQuery Vector Search, or any hosted model service.
 
 ## Current Runtime Deployment Architecture
 
@@ -81,6 +83,8 @@ flowchart LR
 ```
 
 This reflects the current Docker and Cloud Run deployment path. The checked-in service still uses the synthetic catalog packaged with the application.
+
+The deployment path is container deployment only. It does not introduce managed product storage, managed vector search, real partner APIs, or an LLM agent loop.
 
 ## Main Components
 
@@ -210,7 +214,7 @@ Example response shape:
 
 ```json
 {
-  "query": "Bitte zeige mir Angebote für günstige Windeln",
+  "query": "Bitte zeige mir Angebote fuer guenstige Windeln",
   "language": "de",
   "intent": "search",
   "specificity": "specific",
@@ -230,9 +234,11 @@ Example response shape:
 }
 ```
 
-## Cloud Deployment
+## Current Cloud Deployment Scripts
 
-The current deployment uses the following Google Cloud services:
+The repository includes scripts for deploying the current containerized local MVP to Cloud Run. When those scripts are used, the application behavior remains the same: local synthetic catalog, deterministic intent handling, and local retrieval.
+
+The script-based deployment path uses the following Google Cloud services:
 
 | Service           | Role                                                    |
 | ----------------- | ------------------------------------------------------- |
@@ -244,7 +250,7 @@ The build step is performed locally with Docker before pushing the image to Arti
 
 After deployment, the service is available as a public HTTPS endpoint on Cloud Run.
 
-This is deployment plumbing, not the future production retrieval architecture. It keeps the current MVP portable while allowing a later swap to managed GCP services.
+This is deployment plumbing, not the future production retrieval architecture. It keeps the current MVP portable while allowing a later swap to managed GCP services in Stage 8.
 
 ## Current MVP Design Decisions
 
@@ -299,7 +305,7 @@ Reason:
 
 ## Future GCP Production Architecture
 
-Future production work can extend the MVP with Vertex AI and BigQuery Vector Search.
+Future Stage 8 production work can extend the MVP with Vertex AI, BigQuery, and BigQuery Vector Search.
 
 Stage 7B does not implement this production architecture. The current `hybrid` backend is local-only and uses deterministic hash embeddings.
 
@@ -324,7 +330,7 @@ flowchart LR
     RESPONSE --> U
 ```
 
-## Possible Production Improvements
+## Possible Stage 8 Production Improvements
 
 ### Vertex AI Text Embeddings
 
@@ -374,7 +380,7 @@ A possible BigQuery table structure:
 
 ### Hybrid Retrieval
 
-The local Stage 7A hybrid retriever combines:
+The local Stage 7A/7B hybrid retriever combines:
 
 * deterministic keyword matching,
 * local semantic-like similarity,
@@ -385,7 +391,7 @@ The local Stage 7A hybrid retriever combines:
 * popularity,
 * business rules.
 
-A production retrieval engine could use the same high-level shape but replace local hash embeddings and in-memory search with managed vector infrastructure.
+A future Stage 8 production retrieval engine could use the same high-level shape but replace local hash embeddings and in-memory search with managed vector infrastructure.
 
 It should combine:
 
@@ -412,6 +418,7 @@ The current MVP does not include:
 * BigQuery product storage,
 * BigQuery Vector Search,
 * LLM-based intent classification,
+* autonomous LLM agent orchestration,
 * authentication,
 * rate limiting,
 * advanced observability dashboards.
@@ -420,7 +427,7 @@ These limitations are intentional for the lightweight MVP scope.
 
 ## Summary
 
-The current architecture provides a complete lightweight assistant backend with:
+The current Stage 7B architecture provides a complete lightweight local MVP with:
 
 * FastAPI API,
 * deterministic intent detection,
@@ -428,9 +435,8 @@ The current architecture provides a complete lightweight assistant backend with:
 * cross-partner retrieval,
 * structured JSON responses,
 * Docker containerization,
-* local Docker build and Artifact Registry push,
-* Artifact Registry image storage,
-* Cloud Run deployment,
-* local and deployed smoke test support.
+* local Docker build support,
+* optional Artifact Registry and Cloud Run deployment scripts,
+* local and deployed smoke test scripts.
 
-The architecture is intentionally simple, explainable, and cost-efficient, while leaving a clear path toward a production-grade GCP-native implementation using Vertex AI and BigQuery Vector Search.
+The architecture is intentionally simple, explainable, and cost-efficient. It leaves a clear Stage 8 path toward a production-grade GCP-native implementation using Vertex AI, BigQuery, and BigQuery Vector Search, without claiming those services are part of the current runtime.

@@ -54,8 +54,8 @@ Target catalog size:
 The catalog is designed to support later stages, including:
 
 - keyword search (implemented in Stage 3)
-- vector search
-- hybrid retrieval
+- future managed vector search
+- local hybrid retrieval prototype (implemented in Stage 7A)
 - ranking
-- BigQuery import
-- embeddings generation
+- future BigQuery import
+- future production embeddings generation

@@ -2,11 +2,13 @@
 
 ## Purpose
 
-Stage 7A introduces a retrieval backend abstraction and a local hybrid retrieval prototype.
+Stage 7A introduced a retrieval backend abstraction and a local hybrid retrieval prototype. Stage 7B keeps that implementation as a local-only prototype and documents the boundary before future Stage 8 GCP work.
 
-The goal is to prepare the codebase for future semantic retrieval without making production vector search, Vertex AI, or BigQuery Vector Search mandatory for the current lightweight service.
+The goal is to prepare the codebase for future semantic retrieval without claiming that production vector search, Vertex AI, or BigQuery Vector Search is already implemented.
 
 The public API response schema is unchanged. Retrieval still returns `ProductResult` objects through the existing assistant response.
+
+The current Stage 7B runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop.
 
 ## Why Retrieval Backends Were Introduced
 
@@ -39,7 +41,7 @@ This is the backend used when `RETRIEVAL_BACKEND` is not set, including the low-
 
 ### `hybrid`
 
-`hybrid` is a local prototype backend.
+`hybrid` is a deterministic local prototype backend.
 
 It combines:
 
@@ -47,7 +49,7 @@ It combines:
 - local semantic-like similarity,
 - existing business boosts such as partner hint, category hint, price preference, promotion, and popularity.
 
-The hybrid backend uses local deterministic embeddings only. It does not call external APIs and does not require ML model downloads.
+The hybrid backend uses local deterministic hash embeddings only. It does not call external APIs, does not require ML model downloads, and does not create or query a vector index.
 
 ## Local Embedding Provider
 
@@ -61,7 +63,7 @@ It is designed for tests and local experiments:
 - no external model dependency,
 - suitable for simple cosine-similarity experiments.
 
-It is not a production embedding model and should not be treated as equivalent to Vertex AI embeddings or another trained semantic embedding model.
+It is not a production embedding model and should not be treated as equivalent to Vertex AI embeddings or another trained semantic embedding model. Its purpose is to exercise the retrieval interface and ranking flow before Stage 8.
 
 ## Product Text
 
@@ -123,9 +125,9 @@ By default:
 
 This keeps the Stage 6 Cloud Run deployment path unchanged.
 
-## Future Production Extensions
+## Future Stage 8 Production Extensions
 
-Vertex AI embeddings and BigQuery Vector Search remain future production extensions.
+Vertex AI embeddings, BigQuery product storage, and BigQuery Vector Search remain future Stage 8 production extensions.
 
 A future production architecture could:
 
@@ -135,4 +137,4 @@ A future production architecture could:
 4. Retrieve candidates with BigQuery Vector Search.
 5. Apply business-rule reranking in the API.
 
-That production path is not implemented in Stage 7A.
+That production path is not implemented in Stage 7A or Stage 7B.

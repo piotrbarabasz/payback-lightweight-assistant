@@ -11,6 +11,10 @@ class AmazonPartnerAdapter:
         partner_id=Partner.AMAZON,
         display_name="Amazon",
         ecosystem_type="general_merchandise",
+        description=(
+            "Local synthetic general-merchandise catalog for electronics, "
+            "home office, books, toys, sport, and household items."
+        ),
     )
 
     def list_products(self, products: list[Product]) -> list[Product]:

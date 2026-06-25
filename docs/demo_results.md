@@ -4,20 +4,19 @@ This document summarizes the current API demo behavior for the lightweight assis
 
 The service is local-first and deterministic. The same code path is used for local development and the Cloud Run deployment. It does not rely on Vertex AI, BigQuery, BigQuery Vector Search, or real partner API integrations.
 
-## Deployment Summary
+## Demo Environment
 
-- Docker image built locally.
-- Image pushed to Artifact Registry.
-- Service deployed to Cloud Run.
-- Smoke-tested through the public HTTP endpoint.
+- These examples are generated from the deterministic local MVP behavior.
+- The same containerized code path can be smoke-tested locally or on Cloud Run.
+- A Cloud Run deployment, when used, still relies on the packaged synthetic catalog and local retrieval.
 
-Cloud Run service:
+Example Cloud Run service name:
 
 ```text
 payback-lightweight-assistant
 ```
 
-Region:
+Example Cloud Run region:
 
 ```text
 europe-west1
@@ -181,10 +180,10 @@ Observed response summary:
 {
   "language": "en",
   "intent": "comparison",
-  "specificity": "specific",
+  "specificity": "navigational",
   "next_best_action": "compare_products",
   "partner_hint": "unknown",
-  "comparison_summary": "Compared returned products by partner using price, category, promotion status, and relevance score.",
+  "comparison_summary": "Compared returned products by partner using price, category, promotion status, and relevance score. Cheapest returned option is Pampers Sensitive Wet Wipes 80 pcs from dm at 1.62 EUR. dm: 5 result(s), cheapest 1.62 EUR, top score 0.46, categories baby care, promotions 1. No returned matches for requested partner(s): amazon.",
   "comparison_criteria": [
     "price",
     "partner",

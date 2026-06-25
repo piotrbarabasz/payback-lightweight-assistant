@@ -13,6 +13,7 @@ class PartnerMetadata:
     partner_id: Partner
     display_name: str
     ecosystem_type: str
+    description: str
 
 
 @runtime_checkable

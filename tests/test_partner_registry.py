@@ -41,10 +41,29 @@ def test_partner_registry_exposes_expected_metadata() -> None:
 
     assert metadata[Partner.DM].display_name == "dm"
     assert metadata[Partner.DM].ecosystem_type == "drugstore"
+    assert "synthetic drugstore catalog" in metadata[Partner.DM].description
     assert metadata[Partner.EDEKA].display_name == "EDEKA"
     assert metadata[Partner.EDEKA].ecosystem_type == "grocery"
+    assert "synthetic grocery catalog" in metadata[Partner.EDEKA].description
     assert metadata[Partner.AMAZON].display_name == "Amazon"
     assert metadata[Partner.AMAZON].ecosystem_type == "general_merchandise"
+    assert "synthetic general-merchandise catalog" in metadata[
+        Partner.AMAZON
+    ].description
+
+
+def test_available_partner_metadata_has_required_fields() -> None:
+    metadata = list_partner_metadata()
+
+    assert len(metadata) == 3
+    assert {item.partner_id for item in metadata} == {
+        Partner.DM,
+        Partner.EDEKA,
+        Partner.AMAZON,
+    }
+    assert all(item.display_name.strip() for item in metadata)
+    assert all(item.ecosystem_type.strip() for item in metadata)
+    assert all(item.description.strip() for item in metadata)
 
 
 def test_get_partner_adapter_returns_none_for_unknown_partner() -> None:

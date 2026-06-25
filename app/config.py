@@ -33,7 +33,7 @@ def _env_choice(name: str, default: str, allowed_values: set[str]) -> str:
 
 
 SUPPORTED_INTENT_BACKENDS = {"rules", "vertex_placeholder"}
-SUPPORTED_RETRIEVAL_BACKENDS = {"hybrid", "keyword"}
+SUPPORTED_RETRIEVAL_BACKENDS = {"bigquery_vector", "hybrid", "keyword"}
 
 
 @dataclass(frozen=True)

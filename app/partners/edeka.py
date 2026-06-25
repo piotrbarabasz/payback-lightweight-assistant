@@ -11,6 +11,10 @@ class EdekaPartnerAdapter:
         partner_id=Partner.EDEKA,
         display_name="EDEKA",
         ecosystem_type="grocery",
+        description=(
+            "Local synthetic grocery catalog for food, fresh produce, pantry, "
+            "and meal-planning products."
+        ),
     )
 
     def list_products(self, products: list[Product]) -> list[Product]:

@@ -39,8 +39,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--base-url",
-        default=os.getenv("API_BASE_URL", "http://localhost:8080"),
-        help="API base URL, for example http://localhost:8080 or a Cloud Run URL.",
+        default=os.getenv("API_BASE_URL", "http://localhost:8000"),
+        help="API base URL, for example http://localhost:8000 or a Cloud Run URL.",
     )
     parser.add_argument(
         "--requests",

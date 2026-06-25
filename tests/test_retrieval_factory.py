@@ -1,6 +1,7 @@
 import pytest
 
 from app.config import get_settings
+from app.retrieval.backends.bigquery_vector import BigQueryVectorProductRetriever
 from app.retrieval.factory import get_product_retriever
 from app.retrieval.hybrid import HybridProductRetriever
 from app.retrieval.keyword_retriever import KeywordProductRetriever
@@ -37,6 +38,16 @@ def test_get_product_retriever_uses_explicit_hybrid_config(monkeypatch) -> None:
     assert isinstance(retriever, HybridProductRetriever)
 
 
+def test_get_product_retriever_uses_bigquery_vector_placeholder_config(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RETRIEVAL_BACKEND", "bigquery_vector")
+
+    retriever = get_product_retriever()
+
+    assert isinstance(retriever, BigQueryVectorProductRetriever)
+
+
 def test_get_product_retriever_accepts_keyword_backend_argument() -> None:
     retriever = get_product_retriever("keyword")
 
@@ -52,3 +63,9 @@ def test_get_product_retriever_accepts_hybrid_backend_argument() -> None:
     retriever = get_product_retriever("hybrid")
 
     assert isinstance(retriever, HybridProductRetriever)
+
+
+def test_get_product_retriever_accepts_bigquery_vector_backend_argument() -> None:
+    retriever = get_product_retriever("bigquery_vector")
+
+    assert isinstance(retriever, BigQueryVectorProductRetriever)

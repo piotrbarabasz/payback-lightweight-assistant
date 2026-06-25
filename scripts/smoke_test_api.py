@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080").rstrip("/")
 QUERY_EXAMPLES = (
-    "Bitte zeige mir Angebote für günstige Windeln",
+    "Bitte zeige mir Angebote fuer guenstige Windeln",
     "I need stuff for a pasta dinner",
     "Show me headphones on Amazon",
     "Meine PAYBACK Punkte fehlen",

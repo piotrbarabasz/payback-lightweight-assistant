@@ -201,17 +201,25 @@ When `RETRIEVAL_BACKEND=hybrid` is enabled locally, the service performs additio
 
 For the current MVP, this is a reasonable trade-off between capability, cost, and simplicity.
 
-## Optional Local Load Test
+## Optional Local/API Load Test
 
 A lightweight sequential load test is available at [`scripts/load_test_api.py`](scripts/load_test_api.py).
 
 It can target:
 
-- a local FastAPI instance,
+- a local FastAPI instance on the default `uvicorn` port,
 - a deployed Cloud Run URL,
 - any other HTTP endpoint that exposes `POST /assistant/query`.
 
-Run it with a local default base URL:
+The script uses only the Python standard library. It is intentionally sequential and conservative by default so it does not overwhelm a local development server.
+
+Run the API locally:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Then run the load test with the default local base URL, `http://localhost:8000`:
 
 ```bash
 python scripts/load_test_api.py
@@ -220,7 +228,13 @@ python scripts/load_test_api.py
 Or point it at a specific endpoint:
 
 ```bash
-python scripts/load_test_api.py --base-url http://127.0.0.1:8080 --requests 100
+python scripts/load_test_api.py --base-url http://127.0.0.1:8000 --requests 100
+```
+
+For a Cloud Run deployment, pass the deployed service URL explicitly:
+
+```bash
+python scripts/load_test_api.py --base-url https://your-service-url.a.run.app --requests 50
 ```
 
 You can also set environment variables:
@@ -247,10 +261,12 @@ Interpretation:
 
 - lower latency is better,
 - a non-zero error count means the service failed some requests,
+- p50 is the median observed request latency,
+- p95 and p99 show slower tail responses,
 - compare results only within similar environments and request mixes,
 - use local and Cloud Run runs as directional checks, not as a formal benchmark.
 
-This repository does not include a managed benchmark service or a published production load test result. Any benchmark numbers must come from running the script against your own environment.
+This repository does not include a managed benchmark service or a published production load test result. Real benchmark numbers depend on the machine, network, Python runtime, container settings, Cloud Run cold starts, and request mix where the script is run.
 
 ## Scalability Considerations
 

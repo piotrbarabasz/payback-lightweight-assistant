@@ -108,6 +108,14 @@ def test_retrieval_backend_accepts_hybrid(monkeypatch) -> None:
     assert get_settings().RETRIEVAL_BACKEND == "hybrid"
 
 
+def test_retrieval_backend_accepts_bigquery_vector_placeholder(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("RETRIEVAL_BACKEND", "bigquery_vector")
+    get_settings.cache_clear()
+
+    assert get_settings().RETRIEVAL_BACKEND == "bigquery_vector"
+
+
 def test_retrieval_backend_rejects_unknown_value(monkeypatch) -> None:
     clear_config_env(monkeypatch)
     monkeypatch.setenv("RETRIEVAL_BACKEND", "semantic")
@@ -115,7 +123,7 @@ def test_retrieval_backend_rejects_unknown_value(monkeypatch) -> None:
 
     with pytest.raises(
         ValueError,
-        match="RETRIEVAL_BACKEND must be one of: hybrid, keyword",
+        match="RETRIEVAL_BACKEND must be one of: bigquery_vector, hybrid, keyword",
     ):
         get_settings()
 

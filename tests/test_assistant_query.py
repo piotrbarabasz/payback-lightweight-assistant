@@ -32,6 +32,8 @@ def test_product_query_returns_ranked_catalog_results_with_top_k() -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["next_best_action"] == "search_catalog"
+    assert data["comparison_summary"] is None
+    assert data["comparison_criteria"] == []
     assert len(data["results"]) == 3
     assert [result["score"] for result in data["results"]] == sorted(
         [result["score"] for result in data["results"]],
@@ -124,6 +126,8 @@ def test_comparison_query_with_multiple_partners_compares_returned_matches() -> 
     assert data["partner_hint"] == "unknown"
     assert data["results"]
     assert data["comparison_summary"] is not None
+    assert data["comparison_summary"].strip()
+    assert data["comparison_criteria"]
     assert "No returned matches for requested partner(s): amazon" in data[
         "comparison_summary"
     ]
@@ -143,6 +147,7 @@ def test_german_comparison_query_returns_comparison_summary() -> None:
     assert data["next_best_action"] == "compare_products"
     assert data["entities"]["price_preference"] == "cheap"
     assert data["comparison_summary"] is not None
+    assert data["comparison_summary"].strip()
     assert "Cheapest returned option" in data["comparison_summary"]
     assert data["comparison_criteria"] == [
         "price",

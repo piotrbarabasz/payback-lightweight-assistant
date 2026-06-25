@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.config import get_settings
 from app.intent.base import BaseIntentDetector
 from app.intent.rule_based import RuleBasedIntentDetector
-from app.intent.vertex_placeholder import FutureVertexIntentDetector
+from app.intent.vertex_placeholder import VertexIntentDetector
 
 
 def get_intent_detector(backend_name: str | None = None) -> BaseIntentDetector:
@@ -15,5 +15,5 @@ def get_intent_detector(backend_name: str | None = None) -> BaseIntentDetector:
     if selected_backend == "rules":
         return RuleBasedIntentDetector()
     if selected_backend == "vertex_placeholder":
-        return FutureVertexIntentDetector()
+        return VertexIntentDetector()
     raise ValueError(f"Unsupported intent backend: {selected_backend}")

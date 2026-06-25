@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.schemas import IntentDetectionResult
 
 
-class FutureVertexIntentDetector:
+class VertexIntentDetector:
     """Unavailable skeleton for a future external intent detector.
 
     This class intentionally makes no Google Cloud, Vertex AI, Gemini, or other
@@ -17,3 +17,6 @@ class FutureVertexIntentDetector:
             "INTENT_BACKEND=vertex_placeholder is not implemented. "
             "Use INTENT_BACKEND=rules for the local deterministic MVP."
         )
+
+
+FutureVertexIntentDetector = VertexIntentDetector

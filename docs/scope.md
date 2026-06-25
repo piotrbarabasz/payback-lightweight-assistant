@@ -4,6 +4,8 @@
 
 The lightweight assistant is a backend API for a PAYBACK-like shopping assistant. It receives a raw user query and returns either structured product recommendations or a clarifying question when the query is too vague to route confidently.
 
+The current repository state is **Stage 7B: completed local MVP and pre-Stage 8 readiness**. Stage 7B is local-first and deterministic. It does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop.
+
 ## 2. Stage Goals
 
 - Stage 1 defined the MVP scope, API contract, data schemas, and initial FastAPI service.
@@ -11,9 +13,10 @@ The lightweight assistant is a backend API for a PAYBACK-like shopping assistant
 - Stage 3 added deterministic keyword retrieval over the synthetic catalog without AI model calls, vector search, or deployment infrastructure.
 - Stage 4 added deterministic intent detection, language detection, entity extraction, specificity classification, partner hint detection, and next-best-action logic.
 - Stage 5 added Docker and local deployment readiness.
-- Stage 6 added Cloud Run deployment scripts and smoke-testing support.
+- Stage 6 added minimal Cloud Run deployment scripts and smoke-testing support for the existing containerized FastAPI app.
 - Stage 7A added a retrieval backend abstraction with a local hybrid prototype.
-- Stage 7B is documentation cleanup and production-readiness alignment only.
+- Stage 7B is documentation cleanup, production-readiness alignment, and explicit pre-Stage 8 scoping only.
+- Stage 8 is future work for real GCP-native integrations and production hardening.
 
 ## 3. In Scope
 
@@ -26,19 +29,27 @@ The lightweight assistant is a backend API for a PAYBACK-like shopping assistant
 - Three partner types represented in the API contract: `dm`, `EDEKA`, `Amazon`.
 - Synthetic catalog data for local retrieval.
 - Deterministic keyword retrieval, scoring, and ranking.
-- Optional local hybrid retrieval prototype.
+- Optional local hybrid retrieval prototype using deterministic local hash embeddings.
 - Support routing and clarifying question behavior.
 - Modular deterministic intent detection with a future provider interface.
 - Docker and Docker Compose usage for local runs.
-- Cloud Run deployment scripts and smoke-test flow.
+- Cloud Run deployment scripts and smoke-test flow for the current containerized local MVP.
 
-## 4. Out of Scope
+## 4. Local / Mock / Prototype Only
+
+- The catalog is synthetic and checked into the repository.
+- Retrieval is in-process and uses local data.
+- The optional `hybrid` backend is a deterministic local prototype, not managed semantic search.
+- Future Vertex AI and BigQuery modules are placeholders only and are not part of the runtime path.
+- Cloud Run deployment keeps the same local MVP behavior inside a container.
+
+## 5. Out of Scope For Stage 7B
 
 - Vertex AI embeddings.
 - BigQuery product catalog.
 - BigQuery Vector Search.
 - Real partner API integrations.
-- Real LLM-based agent loops.
+- Autonomous LLM-based agent loops.
 - Conversation memory.
 - Production authentication, rate limiting, or monitoring.
 - User history.
@@ -46,15 +57,26 @@ The lightweight assistant is a backend API for a PAYBACK-like shopping assistant
 - Payments.
 - Real PAYBACK account integration.
 
-## 5. Assumptions
+## 6. Assumptions
 
 - The synthetic catalog is sufficient for local deterministic retrieval tests.
-- Semantic retrieval, external integrations, and personalization will be handled in later stages.
+- Managed semantic retrieval, external integrations, and personalization will be handled in Stage 8 or later.
 - The API contract should remain stable across later stages.
 
-## 6. Success Criteria
+## 7. Success Criteria
 
 - Documentation is clear.
 - API schemas are defined.
 - Assistant endpoint returns valid support, clarification, and catalog retrieval responses.
 - Tests validate the API contract, catalog utilities, and retrieval behavior.
+
+## 8. Future Stage 8 Scope
+
+Stage 8 can introduce real production integrations while preserving the local deterministic fallback:
+
+- Vertex AI text embeddings.
+- BigQuery product catalog storage.
+- BigQuery Vector Search.
+- Catalog ingestion and embedding refresh jobs.
+- IAM, Secret Manager, observability, rate limiting, and authentication.
+- Optional LLM-assisted intent handling or agent orchestration if required by the product scope.

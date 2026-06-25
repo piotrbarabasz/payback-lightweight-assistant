@@ -11,6 +11,10 @@ class DmPartnerAdapter:
         partner_id=Partner.DM,
         display_name="dm",
         ecosystem_type="drugstore",
+        description=(
+            "Local synthetic drugstore catalog for personal care, baby care, "
+            "beauty, and household essentials."
+        ),
     )
 
     def list_products(self, products: list[Product]) -> list[Product]:

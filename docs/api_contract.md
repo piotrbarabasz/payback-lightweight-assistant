@@ -19,7 +19,8 @@ http://127.0.0.1:8000
 ```json
 {
   "status": "ok",
-  "service": "payback-lightweight-assistant"
+  "service": "payback-lightweight-assistant",
+  "environment": "local"
 }
 ```
 
@@ -90,7 +91,7 @@ http://127.0.0.1:8000
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `query` | string | Normalized query from the request. |
+| `query` | string | Echoed request query after request validation and whitespace stripping. |
 | `language` | enum | Detected or inferred query language. |
 | `intent` | enum | User intent category. |
 | `specificity` | enum | Whether the query is specific, vague, navigational, or unknown. |

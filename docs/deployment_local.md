@@ -16,6 +16,13 @@ python app/data/generate_synthetic_catalog.py
 uvicorn app.main:app --reload
 ```
 
+The command above uses Uvicorn's default port `8000`. To run on the same port
+used by the Docker and smoke-test defaults:
+
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
+```
+
 Windows PowerShell activation:
 
 ```powershell
@@ -41,6 +48,12 @@ Run this after the API is available on `http://localhost:8080`:
 
 ```bash
 python scripts/smoke_test_api.py
+```
+
+If the API is running on `http://127.0.0.1:8000`, pass that base URL:
+
+```bash
+API_BASE_URL=http://127.0.0.1:8000 python scripts/smoke_test_api.py
 ```
 
 ## 6. Health Check

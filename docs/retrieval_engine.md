@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Stage 3 introduced the first deterministic catalog retrieval layer. It searches the local synthetic product catalog with transparent keyword logic before semantic retrieval, embeddings, or vector search are added.
+Stage 3 introduced the first deterministic catalog retrieval layer. It searches the local synthetic product catalog with transparent keyword logic. Stage 7A later added an optional local hybrid prototype, but managed semantic retrieval, production embeddings, and vector search remain future work.
 
 The goal is to keep retrieval explainable, testable, and API-compatible through `ProductResult` objects.
 
@@ -60,8 +60,8 @@ German and English matching is supported through multilingual product fields (`n
 
 ## 6. Limitations
 
-- No semantic search yet.
-- No embeddings yet.
+- No managed semantic search yet.
+- No production embeddings or vector index yet.
 - No typo tolerance yet.
 - No personalization yet.
 - No real-time inventory.
@@ -69,10 +69,9 @@ German and English matching is supported through multilingual product fields (`n
 
 ## 7. Future Improvements
 
-- Embeddings.
-- Vector search.
-- Hybrid retrieval.
+- Production embeddings.
+- Managed vector search.
 - BigQuery Vector Search.
 - Vertex AI embeddings.
-- Reranking.
+- More advanced reranking.
 - LLM-backed intent detection provider.
