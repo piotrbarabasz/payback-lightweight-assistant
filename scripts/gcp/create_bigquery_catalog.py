@@ -153,12 +153,75 @@ def ensure_table(
     not_found_error: type[Exception],
 ) -> str:
     try:
-        client.get_table(config.table_fqn)
+        existing_table = client.get_table(config.table_fqn)
+        validate_existing_table_schema(existing_table, schema, config)
         return "already exists"
     except not_found_error:
         table = bigquery_module.Table(config.table_fqn, schema=schema)
         client.create_table(table)
         return "created"
+
+
+def validate_existing_table_schema(
+    table: Any,
+    expected_schema: Sequence[Any],
+    config: BigQueryCatalogConfig,
+) -> None:
+    expected_embedding = _find_schema_field(expected_schema, "embedding")
+    if expected_embedding is None:
+        return
+
+    existing_schema = getattr(table, "schema", None)
+    if existing_schema is None:
+        raise ValueError(
+            f"BigQuery table schema could not be inspected: {config.table_fqn}"
+        )
+
+    existing_embedding = _find_schema_field(existing_schema, "embedding")
+    if existing_embedding is None:
+        raise ValueError(
+            "Existing BigQuery table is missing required embedding column. "
+            f"Recreate the table with {config.schema_path}: {config.table_fqn}"
+        )
+
+    expected_type = _schema_field_type(expected_embedding)
+    expected_mode = _schema_field_mode(expected_embedding)
+    existing_type = _schema_field_type(existing_embedding)
+    existing_mode = _schema_field_mode(existing_embedding)
+
+    if existing_type != expected_type or existing_mode != expected_mode:
+        raise ValueError(
+            "Existing BigQuery table has incompatible embedding schema: "
+            f"expected embedding {expected_mode} {expected_type}, "
+            f"found {existing_mode} {existing_type}. "
+            "Vertex AI embeddings require ARRAY<FLOAT64>. "
+            f"Recreate the table with {config.schema_path}: {config.table_fqn}"
+        )
+
+
+def _find_schema_field(schema: Sequence[Any], field_name: str) -> Any | None:
+    for field in schema:
+        if getattr(field, "name", None) == field_name:
+            return field
+        if isinstance(field, Mapping) and field.get("name") == field_name:
+            return field
+    return None
+
+
+def _schema_field_type(field: Any) -> str:
+    if isinstance(field, Mapping):
+        value = field.get("type") or field.get("field_type")
+    else:
+        value = getattr(field, "field_type", None) or getattr(field, "type", None)
+    return str(value or "").upper()
+
+
+def _schema_field_mode(field: Any) -> str:
+    if isinstance(field, Mapping):
+        value = field.get("mode", "NULLABLE")
+    else:
+        value = getattr(field, "mode", "NULLABLE")
+    return str(value or "NULLABLE").upper()
 
 
 def print_selection(config: BigQueryCatalogConfig) -> None:

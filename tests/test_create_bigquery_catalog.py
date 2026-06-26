@@ -12,6 +12,7 @@ from scripts.gcp.create_bigquery_catalog import (
     main,
     parse_args,
     to_bigquery_schema,
+    validate_existing_table_schema,
 )
 
 
@@ -52,9 +53,15 @@ class FakeBigQueryModule:
 
 
 class FakeClient:
-    def __init__(self, existing_datasets=None, existing_tables=None) -> None:
+    def __init__(
+        self,
+        existing_datasets=None,
+        existing_tables=None,
+        existing_table_objects=None,
+    ) -> None:
         self.existing_datasets = set(existing_datasets or [])
         self.existing_tables = set(existing_tables or [])
+        self.existing_table_objects = existing_table_objects or {}
         self.created_datasets: list[FakeDataset] = []
         self.created_tables: list[FakeTable] = []
 
@@ -69,6 +76,8 @@ class FakeClient:
         return dataset
 
     def get_table(self, table_id: str) -> object:
+        if table_id in self.existing_table_objects:
+            return self.existing_table_objects[table_id]
         if table_id not in self.existing_tables:
             raise FakeNotFound(table_id)
         return object()
@@ -212,6 +221,62 @@ def test_ensure_table_is_idempotent_when_table_exists() -> None:
 
     assert status == "already exists"
     assert client.created_tables == []
+
+
+def test_validate_existing_table_schema_accepts_repeated_float_embedding() -> None:
+    config = BigQueryCatalogConfig("payback-dev", "catalog", "products", "EU")
+    existing_table = FakeTable(
+        "payback-dev.catalog.products",
+        [
+            FakeSchemaField("embedding", "FLOAT", mode="REPEATED"),
+        ],
+    )
+    expected_schema = [
+        FakeSchemaField("embedding", "FLOAT", mode="REPEATED"),
+    ]
+
+    validate_existing_table_schema(existing_table, expected_schema, config)
+
+
+def test_validate_existing_table_schema_rejects_repeated_string_embedding() -> None:
+    config = BigQueryCatalogConfig("payback-dev", "catalog", "products", "EU")
+    existing_table = FakeTable(
+        "payback-dev.catalog.products",
+        [
+            FakeSchemaField("embedding", "STRING", mode="REPEATED"),
+        ],
+    )
+    expected_schema = [
+        FakeSchemaField("embedding", "FLOAT", mode="REPEATED"),
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "expected embedding REPEATED FLOAT, found REPEATED STRING.*"
+            "Recreate the table"
+        ),
+    ):
+        validate_existing_table_schema(existing_table, expected_schema, config)
+
+
+def test_ensure_table_fails_clearly_for_stale_embedding_schema() -> None:
+    config = BigQueryCatalogConfig("payback-dev", "catalog", "products", "EU")
+    existing_table = FakeTable(
+        "payback-dev.catalog.products",
+        [
+            FakeSchemaField("embedding", "STRING", mode="REPEATED"),
+        ],
+    )
+    client = FakeClient(
+        existing_table_objects={"payback-dev.catalog.products": existing_table}
+    )
+    expected_schema = [
+        FakeSchemaField("embedding", "FLOAT", mode="REPEATED"),
+    ]
+
+    with pytest.raises(ValueError, match="Vertex AI embeddings require ARRAY<FLOAT64>"):
+        ensure_table(client, config, expected_schema, FakeBigQueryModule, FakeNotFound)
 
 
 def test_main_dry_run_validates_without_importing_google_cloud(

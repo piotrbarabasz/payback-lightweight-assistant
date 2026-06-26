@@ -105,7 +105,7 @@
     "name": "embedding",
     "type": "FLOAT",
     "mode": "REPEATED",
-    "description": "Future vector embedding values. Empty until Stage 8B or later."
+    "description": "Vertex AI vector embedding values stored as ARRAY<FLOAT64>."
   },
   {
     "name": "updated_at",
