@@ -186,6 +186,83 @@ def test_german_diaper_query_detects_de_search_dm_and_baby_care() -> None:
     assert result.entities.price_preference == "cheap"
 
 
+def test_known_partner_search_with_partner_specific_action_is_accepted() -> None:
+    detector, _ = detector_for(
+        payload_json(
+            language="en",
+            intent="search",
+            specificity="navigational",
+            next_best_action="partner_specific_search",
+            partner_hint="amazon",
+            entities={
+                "product_category": "electronics",
+                "price_preference": None,
+                "occasion": None,
+                "dietary_preference": None,
+                "brand": None,
+            },
+        )
+    )
+
+    result = detector.analyze("Show me headphones on Amazon")
+
+    assert result.intent == Intent.SEARCH
+    assert result.specificity == Specificity.NAVIGATIONAL
+    assert result.partner_hint == Partner.AMAZON
+    assert result.next_best_action == NextBestAction.PARTNER_SPECIFIC_SEARCH
+
+
+def test_known_partner_specific_search_normalizes_specificity() -> None:
+    detector, _ = detector_for(
+        payload_json(
+            language="en",
+            intent="search",
+            specificity="specific",
+            next_best_action="partner_specific_search",
+            partner_hint="amazon",
+            entities={
+                "product_category": "electronics",
+                "price_preference": None,
+                "occasion": None,
+                "dietary_preference": None,
+                "brand": None,
+            },
+        )
+    )
+
+    result = detector.analyze("Show me headphones on Amazon")
+
+    assert result.intent == Intent.SEARCH
+    assert result.specificity == Specificity.NAVIGATIONAL
+    assert result.partner_hint == Partner.AMAZON
+    assert result.next_best_action == NextBestAction.PARTNER_SPECIFIC_SEARCH
+
+
+def test_partner_specific_search_with_unknown_partner_falls_back_to_rules() -> None:
+    detector, _ = detector_for(
+        payload_json(
+            language="en",
+            intent="search",
+            specificity="navigational",
+            next_best_action="partner_specific_search",
+            partner_hint="unknown",
+            entities={
+                "product_category": "electronics",
+                "price_preference": None,
+                "occasion": None,
+                "dietary_preference": None,
+                "brand": None,
+            },
+        )
+    )
+
+    result = detector.analyze("Show me headphones")
+
+    assert result.intent == Intent.SEARCH
+    assert result.partner_hint == Partner.UNKNOWN
+    assert result.next_best_action == NextBestAction.SEARCH_CATALOG
+
+
 def test_support_query_routes_to_support() -> None:
     detector, _ = detector_for(
         payload_json(

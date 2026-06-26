@@ -192,6 +192,17 @@ class VertexLLMIntentPayload(BaseModel):
     entities: VertexLLMEntities
     clarifying_question: str | None
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_partner_specific_search(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+
+        normalized_data = dict(data)
+        if _is_normalizable_partner_specific_search(normalized_data):
+            normalized_data["specificity"] = Specificity.NAVIGATIONAL.value
+        return normalized_data
+
     @field_validator("specificity")
     @classmethod
     def reject_unknown_specificity(cls, value: Specificity) -> Specificity:
@@ -232,6 +243,23 @@ class VertexLLMIntentPayload(BaseModel):
                 f"expected {expected_action}, received {self.next_best_action}"
             )
         return self
+
+
+def _is_normalizable_partner_specific_search(data: dict[str, Any]) -> bool:
+    return (
+        data.get("intent") == Intent.SEARCH.value
+        and data.get("next_best_action") == NextBestAction.PARTNER_SPECIFIC_SEARCH.value
+        and data.get("partner_hint") in _CONCRETE_PARTNER_VALUES
+        and data.get("specificity")
+        in {Specificity.SPECIFIC.value, Specificity.NAVIGATIONAL.value}
+    )
+
+
+_CONCRETE_PARTNER_VALUES = {
+    Partner.DM.value,
+    Partner.EDEKA.value,
+    Partner.AMAZON.value,
+}
 
 
 def _payload_to_intent_result(
