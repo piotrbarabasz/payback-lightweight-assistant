@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Stage 6 deploys the existing Dockerized FastAPI assistant API to Google Cloud Run using Artifact Registry as the container image repository. By default this still deploys the deterministic rules intent backend and local keyword retrieval backend. Stage 8D adds optional BigQuery and Vertex AI runtime configuration for `RETRIEVAL_BACKEND=bigquery_vector`; Stage 9B adds optional Vertex/Gemini structured intent parsing with `INTENT_BACKEND=vertex_llm`. See [stage_8d_cloud_run_gcp_runtime.md](stage_8d_cloud_run_gcp_runtime.md).
+Stage 6 deploys the Dockerized FastAPI assistant API to Google Cloud Run using Artifact Registry as the container image repository. By default this deploys the deterministic rules intent backend and local keyword retrieval backend. Stage 8D adds optional BigQuery and Vertex AI runtime configuration for `RETRIEVAL_BACKEND=bigquery_vector`; Stage 9B adds optional Vertex/Gemini structured intent parsing with `INTENT_BACKEND=vertex_llm`. See [stage_8d_cloud_run_gcp_runtime.md](stage_8d_cloud_run_gcp_runtime.md).
 
 ## 2. Architecture
 
@@ -22,7 +22,8 @@ Local machine
 - `gcloud` CLI installed and authenticated.
 - Docker installed and running locally.
 - Required permissions to enable APIs, create Artifact Registry repositories, and deploy Cloud Run services.
-- For the optional BigQuery Vector backend, a Cloud Run service account with BigQuery and Vertex AI IAM access.
+- For optional BigQuery Vector Search retrieval, a Cloud Run service account with BigQuery and Vertex AI IAM access.
+- For optional Vertex/Gemini intent parsing, a Cloud Run service account with Vertex AI IAM access.
 
 ## 4. Environment Variables
 
@@ -35,8 +36,9 @@ export ARTIFACT_REPOSITORY="payback-assistant"
 export IMAGE_NAME="payback-lightweight-assistant"
 export IMAGE_TAG="latest"
 export SERVICE_NAME="payback-lightweight-assistant"
-# Optional, defaults to keyword if unset.
+# Optional, defaults to rules if unset.
 export INTENT_BACKEND="rules"
+# Optional, defaults to keyword if unset.
 export RETRIEVAL_BACKEND="keyword"
 ```
 
@@ -44,15 +46,13 @@ Optional Vertex/Gemini intent parsing:
 
 ```bash
 export INTENT_BACKEND="vertex_llm"
+export CLOUD_RUN_SERVICE_ACCOUNT="payback-assistant-runtime@your-project-id.iam.gserviceaccount.com"
 export VERTEX_AI_LOCATION="europe-west1"
 export VERTEX_INTENT_MODEL="gemini-3.5-flash"
 export INTENT_LLM_TIMEOUT_SECONDS="3"
 ```
 
-The optional LLM backend only parses intent JSON and falls back to rules on
-Vertex/Gemini failures, invalid JSON, missing fields, timeout, or missing
-credentials. It does not change retrieval behavior or introduce autonomous
-planning.
+The optional LLM backend only parses intent JSON and falls back to rules on Vertex/Gemini failures, invalid JSON, missing fields, timeout, or missing credentials. It does not change retrieval behavior or introduce autonomous planning.
 
 ## 5. Deployment Commands
 
@@ -85,7 +85,7 @@ Check the assistant endpoint:
 ```bash
 curl -X POST "$CLOUD_RUN_URL/assistant/query" \
   -H "Content-Type: application/json" \
-  -d '{"query":"Bitte zeige mir Angebote für günstige Windeln","top_k":5}'
+  -d '{"query":"Bitte zeige mir Angebote fuer guenstige Windeln","top_k":5}'
 ```
 
 ## 7. Cloud Run Configuration

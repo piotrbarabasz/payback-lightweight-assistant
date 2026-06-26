@@ -1,204 +1,152 @@
-# GCP Production Extension Plan
+# GCP Production Hardening And Future Work
 
-This document started as a future Stage 8 plan. Stage 8A, Stage 8B, and Stage
-8C have since added the BigQuery catalog foundation, Vertex AI embedding
-generation, and an optional BigQuery Vector Search retrieval backend.
+This document captures production hardening work after the implemented Stage 8 and Stage 9 paths.
 
-The default app remains a local-first deterministic MVP. The FastAPI service can run locally, in Docker, or on Cloud Run through the existing deployment scripts. In default mode it still uses:
+Stage 8 and Stage 9 are no longer only a plan. The repository now includes:
 
-- the synthetic product catalog in `app/data/products.json`,
-- rule-based intent detection,
-- local keyword retrieval by default,
-- optional deterministic local hybrid retrieval,
-- local reranking and response formatting.
+- BigQuery catalog setup and load scripts.
+- Vertex AI product embedding generation.
+- Optional BigQuery Vector Search retrieval through `RETRIEVAL_BACKEND=bigquery_vector`.
+- Cloud Run service-account and runtime environment configuration for managed retrieval.
+- Lightweight deterministic intent, decision, and assistant agents.
+- Optional Vertex/Gemini JSON intent parsing through `INTENT_BACKEND=vertex_llm`.
+- Rules fallback for the optional LLM intent backend.
 
-The default runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, managed embeddings, or an autonomous LLM agent loop. Managed retrieval is enabled only with explicit Stage 8 configuration. Optional Stage 9B Vertex/Gemini intent parsing is enabled only with `INTENT_BACKEND=vertex_llm`; it classifies intent JSON and falls back to rules on any failure.
+Manual GCP validation has confirmed Cloud Run deployment, Vertex AI query embeddings, BigQuery Vector Search product results, optional Vertex/Gemini intent parsing, and rules fallback.
 
-## Remaining Production Work
+## Current Runtime Modes
 
-The following production capabilities still need hardening or remain future work:
+| Mode | Intent backend | Retrieval backend | Notes |
+| --- | --- | --- | --- |
+| Default local | `rules` | `keyword` | No GCP credentials, Vertex AI, Gemini, BigQuery, or partner APIs required. |
+| Local prototype | `rules` | `hybrid` | Uses deterministic local hash embeddings only. |
+| Managed retrieval | `rules` | `bigquery_vector` | Uses Vertex AI query embeddings and BigQuery Vector Search. |
+| Optional LLM intent + managed retrieval | `vertex_llm` | `bigquery_vector` | Uses Gemini only for structured intent JSON, then the normal retrieval path. |
 
-- BigQuery vector index creation and maintenance automation.
-- Cloud Run configuration for BigQuery or Vertex AI calls.
-- Catalog ingestion jobs.
-- Managed IAM/service-account setup for data and model access.
-- Production observability, rate limiting, authentication, or secret management.
+The public API response schema is unchanged across these modes.
 
-## Target Stage 8 Architecture
+## Implemented Managed Architecture
 
 ```text
-Product JSON / partner ingestion source
--> Catalog ingestion and validation job
--> BigQuery product table
--> Vertex AI product embedding generation job
--> BigQuery embedding column and vector index
-
 User query
--> FastAPI POST /assistant/query on Cloud Run
--> Rule-based or optional Vertex/Gemini JSON intent detection
--> Vertex AI query embedding
--> BigQuery Vector Search candidate retrieval
--> Local business-rule reranking
--> Existing response formatter
--> Structured AssistantQueryResponse
+-> Cloud Run FastAPI service
+-> IntentDetectionAgent
+-> rules or optional Vertex/Gemini JSON intent backend
+-> DecisionAgent
+-> AssistantAgent
+-> keyword, hybrid, or BigQuery Vector Search retriever
+-> existing AssistantQueryResponse schema
 ```
 
-The public API response shape should stay backward compatible. Stage 8 should replace the retrieval data source and candidate generation layer, not force clients to consume a different response contract.
+For `RETRIEVAL_BACKEND=bigquery_vector`, the retrieval path is:
 
-## BigQuery Product Catalog
+```text
+Assistant search decision
+-> Vertex AI query embedding
+-> BigQuery product table with embeddings
+-> BigQuery Vector Search
+-> existing business-rule reranking
+-> product results with vector-search reason text
+```
 
-Stage 8 can move the catalog from checked-in JSON to a managed BigQuery table.
+The frontend or API client still calls only the Cloud Run HTTPS API. BigQuery and Vertex AI calls remain server-side.
 
-Planned table fields:
+## Environment Variables
 
-- `product_id`
-- `partner`
-- `name`
-- `name_de`
-- `category`
-- `description`
-- `description_de`
-- `brand`
-- `price`
-- `currency`
-- `tags`
-- `tags_de`
-- `availability`
-- `popularity_score`
-- `is_promotion`
-- `product_url`
-- `embedding_text`
-- `embedding`
-- `updated_at`
-
-The first ingestion source can still be the existing product JSON. Later, partner-specific ingestion adapters can replace or augment that source without changing the assistant API.
-
-## Vertex AI Embeddings
-
-Stage 8 can add Vertex AI text embeddings in two places:
-
-- offline product embeddings during ingestion or refresh,
-- request-time query embeddings for semantic retrieval.
-
-Product embedding text should be built from stable catalog fields such as product name, category, brand, descriptions, tags, partner, price, availability, and promotion status. Query embedding should happen only after intent detection decides retrieval is needed.
-
-The current local hash embedding provider remains a development/prototype tool and should not be treated as equivalent to Vertex AI embeddings.
-
-## BigQuery Vector Search
-
-Stage 8 can store product embeddings in BigQuery and create a vector index for candidate retrieval.
-
-Expected retrieval flow:
-
-1. Cloud Run receives `POST /assistant/query`.
-2. The service detects intent, language, partner hints, category hints, and price preference.
-3. For catalog-search actions, the service generates a query embedding with Vertex AI.
-4. The service queries BigQuery Vector Search for candidate products.
-5. The service applies existing business-rule reranking for partner hints, category hints, price preference, promotion status, and popularity.
-6. The service formats the existing `AssistantQueryResponse`.
-
-Keyword retrieval should remain available as a fallback and as a local development mode.
-
-## Cloud Run Service Calls
-
-In Stage 8, Cloud Run would remain the HTTP entry point and orchestration layer.
-
-Cloud Run would call:
-
-- optionally Vertex AI / Gemini for structured intent parsing,
-- Vertex AI for request-time query embeddings,
-- BigQuery for product lookup and vector search,
-- optionally Secret Manager for non-secret configuration references or future partner credentials.
-
-The service should keep timeouts, retries, and clear error handling around all managed service calls. If managed retrieval fails, the API should fall back to local keyword retrieval when a local catalog is available, or return a controlled fallback response instead of masking infrastructure errors as successful semantic retrieval.
-
-## Expected Environment Variables
-
-Current deployment variables can remain:
+Default local mode:
 
 ```bash
-export GCP_PROJECT_ID="your-project-id"
-export GCP_REGION="europe-west1"
-export SERVICE_NAME="payback-lightweight-assistant"
+export INTENT_BACKEND="rules"
+export RETRIEVAL_BACKEND="keyword"
 ```
 
-Stage 8 managed retrieval uses:
+Managed retrieval mode:
 
 ```bash
 export RETRIEVAL_BACKEND="bigquery_vector"
-export BIGQUERY_DATASET="payback_assistant"
+export GCP_PROJECT_ID="your-project-id"
+export GCP_REGION="europe-west1"
+export GCP_LOCATION="europe-west1"
+export BIGQUERY_DATASET="payback_catalog"
 export BIGQUERY_PRODUCTS_TABLE="products"
-export BIGQUERY_VECTOR_INDEX="products_embedding_idx"
-export BIGQUERY_EMBEDDING_COLUMN="embedding"
+export BIGQUERY_LOCATION="europe-west1"
+export BIGQUERY_VECTOR_TOP_K="25"
 export VERTEX_AI_LOCATION="europe-west1"
-export VERTEX_EMBEDDING_MODEL="text-embedding-model-id"
-export ENABLE_LOCAL_RETRIEVAL_FALLBACK="true"
+export VERTEX_EMBEDDING_MODEL="text-embedding-005"
 ```
 
-`RETRIEVAL_BACKEND=bigquery_vector` enables the optional Stage 8C BigQuery
-Vector Search retriever when the required BigQuery and Vertex AI environment
-variables, credentials, and product embeddings are available. The default
-backend remains `keyword`.
-
-Optional Stage 9B Vertex/Gemini intent parsing uses:
+Optional Vertex/Gemini intent parsing:
 
 ```bash
 export INTENT_BACKEND="vertex_llm"
+export GCP_PROJECT_ID="your-project-id"
 export VERTEX_AI_LOCATION="europe-west1"
 export VERTEX_INTENT_MODEL="gemini-3.5-flash"
 export INTENT_LLM_TIMEOUT_SECONDS="3"
 ```
 
-`INTENT_BACKEND=rules` remains the default. The LLM backend is used only to
-produce the existing structured intent fields; it does not perform retrieval,
-answer generation, memory, planning, or tool execution.
+`INTENT_BACKEND=rules` and `RETRIEVAL_BACKEND=keyword` remain the defaults. The LLM backend is used only to produce the existing structured intent fields; it does not perform retrieval, answer generation, memory, planning, or tool execution.
 
-## IAM And Service Account Permissions
+## IAM And Service Accounts
 
-Stage 8 should use a dedicated Cloud Run service account with least-privilege access.
+Cloud Run should use a dedicated runtime service account.
 
-Likely permissions:
+Required managed-path permissions:
 
 - BigQuery job execution for vector/search queries.
-- BigQuery read access to the product table and vector index.
-- Vertex AI user permission for embedding generation.
-- Logging and monitoring writer permissions.
-- Secret Manager secret accessor only if future integrations require secrets.
+- BigQuery read access to the product dataset or table.
+- Vertex AI user permission for embeddings and optional Gemini intent parsing.
+- Logging writer permissions through the normal Cloud Run runtime path.
 
-The ingestion or embedding refresh job may need a separate service account with:
+Prefer dataset-level BigQuery read access. The setup script attempts a dataset-level SQL `GRANT` when `BIGQUERY_DATASET` and the `bq` CLI are available. It does not fail the whole setup if that narrow grant cannot be applied.
 
-- BigQuery data editor permissions for the target dataset/table,
-- Vertex AI embedding access,
-- read access to the ingestion source,
-- logging permissions.
+Project-level `roles/bigquery.dataViewer` is a fallback only when explicitly requested:
 
-Avoid using broad project-owner roles for either Cloud Run or ingestion jobs.
+```bash
+export ALLOW_PROJECT_BIGQUERY_DATA_VIEWER="true"
+bash infra/gcp/setup_cloud_run_service_account.sh
+```
+
+Avoid broad owner/editor roles for Cloud Run or ingestion jobs.
 
 ## Fallback Strategy
 
-Stage 8 should preserve deterministic local retrieval as a fallback path:
+The deterministic local path must remain available:
 
-- `RETRIEVAL_BACKEND=keyword` should continue to run without GCP services.
-- `INTENT_BACKEND=rules` should continue to run without GCP services.
-- `INTENT_BACKEND=vertex_llm` should fall back to rules on missing credentials, timeout, invalid JSON, missing fields, unsupported response shape, or inconsistent action policy.
-- A BigQuery/Vertex backend should fail clearly during startup or request handling if required configuration is missing.
-- If `ENABLE_LOCAL_RETRIEVAL_FALLBACK=true`, managed retrieval failures can fall back to local keyword retrieval over the packaged synthetic catalog.
-- Responses should make no false claim that semantic/vector retrieval was used when fallback retrieval handled the request.
+- `INTENT_BACKEND=rules` runs without GCP services.
+- `RETRIEVAL_BACKEND=keyword` runs without GCP services.
+- `INTENT_BACKEND=vertex_llm` falls back to rules on missing credentials, timeout, invalid JSON, missing fields, unsupported response shape, or inconsistent action policy.
+- `RETRIEVAL_BACKEND=bigquery_vector` should fail clearly if required BigQuery or Vertex configuration is missing.
+- Future managed retrieval fallback should avoid false claims that vector retrieval was used when keyword fallback handled the request.
 
-This keeps local demos, tests, and reviewer evaluation reproducible while allowing production deployments to use managed GCP retrieval.
+This keeps local demos, tests, and reviewer evaluation reproducible while allowing managed retrieval to be enabled explicitly.
 
-## Implementation Sequence
+## Remaining Production Hardening
 
-Recommended Stage 8 order:
+The following work is intentionally left outside the lightweight challenge scope:
 
-1. Define BigQuery schema and migration/creation scripts.
-2. Add a catalog ingestion job from the existing JSON into BigQuery.
-3. Add product embedding text generation and offline Vertex AI embedding generation.
-4. Store embeddings in BigQuery and create the vector index.
-5. Add a real retrieval backend behind the existing retrieval interface.
-6. Add query embedding and BigQuery Vector Search calls from Cloud Run.
-7. Keep keyword retrieval as local fallback.
-8. Add integration tests against a controlled GCP test project.
-9. Add observability, cost controls, IAM documentation, and failure-mode tests.
+- Automated catalog ingestion from real partner sources.
+- Scheduled product embedding refresh jobs.
+- Vector index maintenance and monitoring.
+- More granular IAM and organization-policy review.
+- Production authentication and rate limiting.
+- Structured request tracing and latency dashboards.
+- Error-budget and alerting setup.
+- Load testing under expected production traffic.
+- Cost budgets and per-environment quota controls.
+- Managed retrieval fallback design for partial BigQuery or Vertex outages.
+- Real partner API adapters and secret management.
+- CI/CD promotion flow across dev, staging, and production projects.
 
-Until those steps are implemented and tested, Stage 8 remains a plan only.
+## Verification Checklist
+
+Before presenting a managed deployment as production-like, verify:
+
+- Cloud Run `/health` returns `200 OK`.
+- The smoke-test assistant queries return `200 OK`.
+- Search responses include product results from the expected backend.
+- BigQuery Vector Search responses include vector-search reason text.
+- `INTENT_BACKEND=vertex_llm` returns valid structured intent when enabled.
+- Invalid or unavailable LLM responses fall back to rules.
+- Default `INTENT_BACKEND=rules` and `RETRIEVAL_BACKEND=keyword` still pass the test suite.
+- IAM grants are least-privilege or any project-level fallback is explicitly documented.

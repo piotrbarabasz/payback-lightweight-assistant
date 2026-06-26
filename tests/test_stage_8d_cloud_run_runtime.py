@@ -26,6 +26,8 @@ def test_service_account_script_grants_expected_runtime_roles() -> None:
     assert "BIGQUERY_DATASET" in script
     assert "GRANT \\`roles/bigquery.dataViewer\\` ON SCHEMA" in script
     assert "ALLOW_PROJECT_BIGQUERY_DATA_VIEWER" in script
+    assert 'if [[ "${ALLOW_PROJECT_BIGQUERY_DATA_VIEWER:-false}" == "true" ]]' in script
+    assert "Set ALLOW_PROJECT_BIGQUERY_DATA_VIEWER=true" in script
     assert "bq add-iam-policy-binding" not in script
     assert "continuing without failing the script" in script
 

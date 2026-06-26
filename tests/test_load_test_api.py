@@ -7,7 +7,7 @@ def test_parse_args_defaults_to_local_base_url(monkeypatch) -> None:
 
     args = parse_args([])
 
-    assert args.base_url == "http://localhost:8000"
+    assert args.base_url == "http://localhost:8080"
     assert args.requests == 50
 
 

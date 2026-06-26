@@ -8,13 +8,13 @@ The system was designed as a lightweight backend API for a recruitment challenge
 
 The current version runs as a containerized FastAPI application and is ready to deploy to Google Cloud Run using the included scripts.
 
-The request path is intentionally lightweight:
+The default request path is intentionally lightweight:
 
 ```text
 User query
 -> FastAPI endpoint
--> deterministic intent detection
--> configured in-memory retrieval backend
+-> rules intent backend
+-> keyword retrieval backend
 -> rule-based scoring and ranking
 -> structured JSON response
 ```
@@ -25,11 +25,21 @@ Stage 7A also includes an optional `hybrid` backend for local experiments. It us
 
 Stage 8 adds an optional `bigquery_vector` backend. That backend embeds the user query with Vertex AI and queries BigQuery Vector Search. It is not enabled by default and should be evaluated separately from the local MVP path.
 
+Stage 9B adds an optional `vertex_llm` intent backend. That backend uses Vertex/Gemini only to classify the raw query into the existing structured intent fields. It is not enabled by default and falls back to deterministic rules on timeout, missing credentials, invalid JSON, missing fields, unsupported values, or inconsistent policy output.
+
+The three common modes are:
+
+| Mode | Intent backend | Retrieval backend | Cost profile |
+| --- | --- | --- | --- |
+| Default local | `rules` | `keyword` | Lowest cost; no managed model or database calls. |
+| Managed retrieval | `rules` | `bigquery_vector` | Adds Vertex AI query embedding calls and BigQuery Vector Search jobs. |
+| Optional LLM intent + managed retrieval | `vertex_llm` | `bigquery_vector` | Adds a Gemini JSON intent classification call before retrieval decisions. |
+
 ## Performance-Oriented Design Decisions
 
-### 1. No LLM Call in the Request Path
+### 1. No LLM Call in the Default Request Path
 
-The current MVP uses deterministic intent detection instead of an LLM-based classifier.
+The default MVP uses deterministic intent detection instead of an LLM-based classifier.
 
 This reduces:
 
@@ -40,6 +50,8 @@ This reduces:
 * debugging complexity.
 
 This is suitable for the MVP because the supported intent set is limited and the expected query patterns are known.
+
+When `INTENT_BACKEND=vertex_llm` is configured, the LLM is limited to strict JSON intent parsing. It does not retrieve products, write final answers, plan tool calls, use memory, or run an autonomous loop. The rules backend remains the reliability fallback.
 
 ### 2. In-Memory Product Catalog
 
@@ -144,6 +156,8 @@ Vertex embedding calls add:
 
 Product embeddings should be generated offline or in a controlled refresh job. Request-time Vertex calls should be limited to the user query embedding when managed vector retrieval is enabled.
 
+Optional `INTENT_BACKEND=vertex_llm` also uses Vertex AI / Gemini, but only for structured intent classification. It adds one managed model call before retrieval decisions and should be enabled only when the additional latency, IAM dependency, and model request cost are acceptable.
+
 ### 3. BigQuery Vector Search Is Optional
 
 BigQuery Vector Search is not used in the default MVP.
@@ -210,7 +224,7 @@ Verified behaviors:
 
 ## Latency Considerations
 
-The current implementation is expected to have low latency because it avoids:
+The default implementation is expected to have low latency because it avoids:
 
 * LLM inference,
 * external embedding generation,
@@ -222,7 +236,15 @@ The main processing steps are local Python function calls over a small product c
 
 When `RETRIEVAL_BACKEND=hybrid` is enabled locally, the service performs additional in-process hash embedding and cosine similarity work. This is acceptable for the small synthetic catalog but is not intended as a production vector search substitute.
 
+When `RETRIEVAL_BACKEND=bigquery_vector` is enabled, latency includes Vertex AI query embedding and BigQuery Vector Search. When `INTENT_BACKEND=vertex_llm` is also enabled, latency additionally includes Gemini JSON classification. Timeouts and fallback behavior protect reliability, but managed calls should be measured separately from the local default path.
+
 For the current MVP, this is a reasonable trade-off between capability, cost, and simplicity.
+
+## Load Test Results
+
+No formal production load-test result is committed with the repository. Manual validation has confirmed the Cloud Run managed path returns `200 OK` for `/health` and the five smoke-test assistant queries.
+
+Use the local/API load-test script below to record environment-specific numbers before presenting benchmark claims. Results depend on local hardware, Cloud Run cold starts, region, BigQuery table size, Vertex model latency, network path, and request mix.
 
 ## Optional Local/API Load Test
 
@@ -242,7 +264,7 @@ Run the API locally:
 uvicorn app.main:app --reload
 ```
 
-Then run the load test with the default local base URL, `http://localhost:8000`:
+Then run the load test with the default local base URL, `http://localhost:8080`:
 
 ```bash
 python scripts/load_test_api.py
@@ -251,7 +273,7 @@ python scripts/load_test_api.py
 Or point it at a specific endpoint:
 
 ```bash
-python scripts/load_test_api.py --base-url http://127.0.0.1:8000 --requests 100
+python scripts/load_test_api.py --base-url http://127.0.0.1:8080 --requests 100
 ```
 
 For a Cloud Run deployment, pass the deployed service URL explicitly:
@@ -375,7 +397,8 @@ The current MVP is optimized for a cost-efficient recruitment demo:
 * deterministic intent detection,
 * default deterministic keyword retrieval and ranking,
 * optional local hybrid retrieval for experiments,
+* optional Vertex/Gemini JSON intent parsing with rules fallback,
 * explainable recommendation reasons,
 * local and deployed smoke-test scripts.
 
-Vertex AI and BigQuery Vector Search are implemented as optional Stage 8 integrations, not mandatory dependencies for the lightweight MVP.
+Vertex AI, BigQuery Vector Search, and Vertex/Gemini intent parsing are implemented as optional integrations, not mandatory dependencies for the lightweight MVP.

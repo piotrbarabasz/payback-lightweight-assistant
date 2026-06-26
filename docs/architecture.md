@@ -286,7 +286,7 @@ Example response shape:
 
 ## Current Cloud Deployment Scripts
 
-The repository includes scripts for deploying the current containerized local MVP to Cloud Run. When those scripts are used, the application behavior remains the same: local synthetic catalog, deterministic intent handling, and local retrieval.
+The repository includes scripts for deploying the current containerized app to Cloud Run. With defaults, the application behavior remains local and deterministic: packaged synthetic catalog, `rules` intent handling, and `keyword` retrieval. Optional environment variables can enable Vertex/Gemini intent parsing or BigQuery Vector Search retrieval.
 
 The script-based deployment path uses the following Google Cloud services:
 
@@ -300,13 +300,13 @@ The build step is performed locally with Docker before pushing the image to Arti
 
 After deployment, the service is available as a public HTTPS endpoint on Cloud Run.
 
-This deployment plumbing keeps the current MVP portable while also supporting the optional Stage 8D managed runtime configuration.
+This deployment plumbing keeps the default MVP portable while also supporting optional managed runtime configuration for Stage 8 retrieval and Stage 9B intent parsing.
 
 ## Current MVP Design Decisions
 
-### Deterministic Intent Detection
+### Deterministic Intent Detection By Default
 
-The current version uses deterministic intent detection instead of an LLM-based intent classifier.
+The default version uses deterministic intent detection instead of an LLM-based intent classifier.
 
 Reason:
 
@@ -315,6 +315,8 @@ Reason:
 * predictable behavior,
 * easier debugging,
 * no dependency on external model availability.
+
+The optional `vertex_llm` backend uses Vertex/Gemini only for strict JSON intent parsing and falls back to deterministic rules on failure.
 
 ### In-Memory Catalog Retrieval
 
@@ -464,7 +466,7 @@ The current system still does not include:
 * personalization,
 * managed ingestion scheduling,
 * automatic managed-to-local fallback,
-* LLM-based intent classification,
+* LLM-based final answer generation,
 * autonomous LLM agent orchestration,
 * authentication,
 * rate limiting,

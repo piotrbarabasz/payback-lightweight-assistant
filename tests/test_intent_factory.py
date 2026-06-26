@@ -117,11 +117,11 @@ def test_rule_based_detector_preserves_english_discovery_behavior() -> None:
     assert result.entities.occasion == "dinner"
 
 
-def test_vertex_placeholder_makes_no_external_call_and_fails_clearly() -> None:
+def test_vertex_placeholder_is_obsolete_and_fails_clearly() -> None:
     detector = VertexIntentDetector()
 
     with pytest.raises(
         NotImplementedError,
-        match="INTENT_BACKEND=vertex_placeholder is not implemented",
+        match="INTENT_BACKEND=vertex_placeholder is obsolete and unsupported",
     ):
         detector.analyze("Show me headphones on Amazon")

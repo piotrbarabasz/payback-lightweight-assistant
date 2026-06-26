@@ -9,9 +9,13 @@ The code is intentionally scoped for reproducibility, reviewability, and low ope
 
 ## Current Stage
 
-This repository is currently at **Stage 9B: local MVP with optional GCP vector retrieval and optional Vertex/Gemini intent parsing**.
+This repository is currently at **Stage 9B / final candidate**.
 
-The default runtime remains local-first and deterministic. Stage 8 adds optional BigQuery, Vertex AI, BigQuery Vector Search, and Cloud Run runtime configuration paths that must be enabled explicitly. Stage 9 adds an explicit lightweight agent layer and an optional Vertex/Gemini structured intent parser. The project is still not an autonomous LLM agent system.
+The default local path is intentionally simple: `INTENT_BACKEND=rules`, `RETRIEVAL_BACKEND=keyword`, and the checked-in synthetic catalog. It runs without Google Cloud credentials, Vertex AI, BigQuery, or Gemini.
+
+The optional managed GCP path is explicit: Cloud Run can run the same FastAPI service with `RETRIEVAL_BACKEND=bigquery_vector` for Vertex AI query embeddings and BigQuery Vector Search, and can optionally use `INTENT_BACKEND=vertex_llm` for Gemini JSON intent parsing. Neither managed retrieval nor LLM intent parsing is enabled by default.
+
+The project has a lightweight deterministic agent layer for intent detection, decision policy, and assistant orchestration. It is not an autonomous LLM agent loop.
 
 Stage history:
 
@@ -131,6 +135,8 @@ The GCP extension plan and remaining production hardening notes are documented i
 
 ## How to Evaluate This Challenge
 
+### Default Local Quickstart
+
 Install dependencies:
 
 ```bash
@@ -149,16 +155,18 @@ Run the API locally:
 uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 ```
 
-Run the demo / smoke test:
+Run the local demo / smoke test:
 
 ```bash
 python scripts/smoke_test_api.py
 ```
 
+This is the recommended reviewer path when no GCP project is configured. It uses `INTENT_BACKEND=rules` and `RETRIEVAL_BACKEND=keyword`.
+
 Optionally run the lightweight local/API load test after the API is running:
 
 ```bash
-python scripts/load_test_api.py --base-url http://127.0.0.1:8000 --requests 50
+python scripts/load_test_api.py --base-url http://127.0.0.1:8080 --requests 50
 ```
 
 Optionally build the Docker image:
@@ -166,6 +174,54 @@ Optionally build the Docker image:
 ```bash
 docker build -t payback-lightweight-assistant .
 ```
+
+### Cloud Run Demo
+
+The default Cloud Run deployment keeps the low-cost local behavior:
+
+```bash
+export GCP_PROJECT_ID="your-project-id"
+export GCP_REGION="europe-west1"
+export ARTIFACT_REPOSITORY="payback-assistant"
+export IMAGE_NAME="payback-lightweight-assistant"
+export IMAGE_TAG="latest"
+export SERVICE_NAME="payback-lightweight-assistant"
+export INTENT_BACKEND="rules"
+export RETRIEVAL_BACKEND="keyword"
+
+bash infra/gcp/setup_project.sh
+bash infra/gcp/create_artifact_registry.sh
+bash infra/gcp/build_and_push_image.sh
+bash infra/gcp/deploy_cloud_run.sh
+bash infra/gcp/smoke_test_deployed_api.sh
+```
+
+The optional managed retrieval path requires Stage 8 BigQuery and Vertex AI setup before deployment:
+
+```bash
+export RETRIEVAL_BACKEND="bigquery_vector"
+export CLOUD_RUN_SERVICE_ACCOUNT="payback-assistant-runtime@your-project-id.iam.gserviceaccount.com"
+export GCP_LOCATION="europe-west1"
+export BIGQUERY_DATASET="payback_catalog"
+export BIGQUERY_PRODUCTS_TABLE="products"
+export BIGQUERY_LOCATION="europe-west1"
+export BIGQUERY_VECTOR_TOP_K="25"
+export VERTEX_AI_LOCATION="europe-west1"
+export VERTEX_EMBEDDING_MODEL="text-embedding-005"
+bash infra/gcp/deploy_cloud_run.sh
+```
+
+Enable the optional Vertex/Gemini intent backend only when Vertex AI access is configured:
+
+```bash
+export INTENT_BACKEND="vertex_llm"
+export VERTEX_AI_LOCATION="europe-west1"
+export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export INTENT_LLM_TIMEOUT_SECONDS="3"
+bash infra/gcp/deploy_cloud_run.sh
+```
+
+The LLM backend only parses the query into the existing structured intent fields. On timeout, missing credentials, invalid JSON, missing fields, unsupported values, or inconsistent policy output, the service logs a warning and falls back to `rules`.
 
 ## Stage 2: Synthetic Product Catalog
 
@@ -334,6 +390,7 @@ Runtime configuration is environment-based:
 | `MAX_TOP_K` | `20` | Maximum assistant result count. |
 | `GCP_PROJECT_ID` | empty | Google Cloud project for optional Stage 8 utilities. Required when constructing the Vertex embedding provider. |
 | `GCP_LOCATION` | `europe-west1` | Google Cloud location for optional Stage 8 utilities. Can be used by the Vertex embedding provider. |
+| `GCP_REGION` | `europe-west1` | Google Cloud region for optional Cloud Run deployment scripts. |
 | `BIGQUERY_DATASET` | `payback_catalog` | BigQuery dataset for optional Stage 8 catalog and vector retrieval. |
 | `BIGQUERY_PRODUCTS_TABLE` | `products` | BigQuery products table for optional Stage 8 catalog and vector retrieval. |
 | `BIGQUERY_LOCATION` | `europe-west1` | BigQuery job and dataset location. |
@@ -451,7 +508,7 @@ API_BASE_URL=http://127.0.0.1:8000 python scripts/smoke_test_api.py
 
 ## Cloud Run
 
-Use the Stage 6 quick deployment flow above for the default keyword backend. For the optional BigQuery/Vertex runtime path, follow [docs/stage_8d_cloud_run_gcp_runtime.md](docs/stage_8d_cloud_run_gcp_runtime.md). Cost-control notes are in [docs/cost_control.md](docs/cost_control.md).
+Use the Cloud Run demo flow above for the default `rules` + `keyword` backend. For the optional BigQuery/Vertex runtime path, follow [docs/stage_8d_cloud_run_gcp_runtime.md](docs/stage_8d_cloud_run_gcp_runtime.md). Cost-control notes are in [docs/cost_control.md](docs/cost_control.md).
 
 ## Running Tests
 
@@ -483,7 +540,7 @@ pytest
 
 - `GET /health`: health check for local development and future deployment.
 - `GET /ready`: readiness check for container and Cloud Run deployment.
-- `POST /assistant/query`: main assistant endpoint. It returns deterministic intent detection, keyword-ranked catalog results, support routing, or a clarifying question.
+- `POST /assistant/query`: main assistant endpoint. It returns configured intent detection, catalog results, support routing, comparison responses, or a clarifying question.
 - `GET /catalog/products`: development-only catalog preview endpoint.
 
 Interactive OpenAPI docs are available at `/docs` when the app is running.
@@ -491,7 +548,7 @@ Interactive OpenAPI docs are available at `/docs` when the app is running.
 ## Example Request
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/assistant/query" \
+curl -X POST "http://127.0.0.1:8080/assistant/query" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "Bitte zeige mir Angebote fuer guenstige Windeln",

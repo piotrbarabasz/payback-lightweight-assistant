@@ -1,11 +1,11 @@
 # API Contract
 
-This document defines the API contract for the lightweight assistant backend. The default MVP uses deterministic intent detection and local retrieval over the synthetic catalog. Optional Stage 8 configuration can switch retrieval to BigQuery Vector Search with Vertex AI query embeddings, but the public response schema remains the same. The service does not use Gemini or real partner APIs.
+This document defines the API contract for the lightweight assistant backend. The default MVP uses deterministic intent detection and local retrieval over the synthetic catalog. Optional Stage 8 configuration can switch retrieval to BigQuery Vector Search with Vertex AI query embeddings, and optional Stage 9B configuration can use Vertex/Gemini only for structured intent parsing. The public response schema remains the same. The service does not use real partner APIs.
 
 Base URL for local development:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8080
 ```
 
 ## GET /health
@@ -31,10 +31,11 @@ http://127.0.0.1:8000
 - Main assistant endpoint.
 - Accepts a raw user query.
 - Returns keyword-ranked product results, a clarifying question, a support routing decision, or a comparison response.
-- Performs deterministic query normalization, language detection, intent detection, specificity classification, partner hint detection, entity extraction, next-best-action selection, keyword matching, filtering, scoring, and ranking.
+- Performs query normalization, language detection, intent detection, specificity classification, partner hint detection, entity extraction, next-best-action selection, matching, filtering, scoring, and ranking.
 - Uses local keyword retrieval by default.
 - Can use managed BigQuery Vector Search with Vertex AI query embeddings when `RETRIEVAL_BACKEND=bigquery_vector` is configured.
-- Does not perform LLM-based intent detection.
+- Can use Vertex/Gemini for strict JSON intent parsing when `INTENT_BACKEND=vertex_llm` is configured.
+- Does not use an autonomous LLM loop, memory, tool planning, or LLM retrieval scoring.
 
 ### Request Body
 

@@ -4,7 +4,7 @@
 
 The lightweight assistant is a backend API for a PAYBACK-like shopping assistant. It receives a raw user query and returns either structured product recommendations or a clarifying question when the query is too vague to route confidently.
 
-The default repository runtime is local-first and deterministic. It does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop unless an optional Stage 8 backend is explicitly configured.
+The default repository runtime is local-first and deterministic. It does not use Vertex AI, BigQuery, BigQuery Vector Search, Gemini, real partner APIs, or an autonomous LLM agent loop unless an optional managed backend is explicitly configured.
 
 ## 2. Stage Goals
 
@@ -16,7 +16,8 @@ The default repository runtime is local-first and deterministic. It does not use
 - Stage 6 added minimal Cloud Run deployment scripts and smoke-testing support for the existing containerized FastAPI app.
 - Stage 7A added a retrieval backend abstraction with a local hybrid prototype.
 - Stage 7B was documentation cleanup, production-readiness alignment, and explicit pre-Stage 8 scoping.
-- Stage 8 adds optional GCP-native integrations and documents remaining production hardening.
+- Stage 8 added optional GCP-native retrieval integrations and documents remaining production hardening.
+- Stage 9 added lightweight deterministic agent boundaries and optional Vertex/Gemini structured intent parsing with rules fallback.
 
 ## 3. In Scope
 
@@ -31,13 +32,14 @@ The default repository runtime is local-first and deterministic. It does not use
 - Deterministic keyword retrieval, scoring, and ranking.
 - Optional local hybrid retrieval prototype using deterministic local hash embeddings.
 - Support routing and clarifying question behavior.
-- Modular deterministic intent detection with a future provider interface.
+- Modular deterministic intent detection with an optional Vertex/Gemini provider interface.
 - Docker and Docker Compose usage for local runs.
 - Cloud Run deployment scripts and smoke-test flow for the current containerized local MVP.
 - Optional BigQuery catalog foundation scripts.
 - Optional Vertex AI embedding provider and product embedding generation script.
 - Optional BigQuery Vector Search retriever.
 - Optional Cloud Run runtime service-account configuration for managed retrieval.
+- Optional Vertex/Gemini structured intent parser with rules fallback.
 
 ## 4. Local / Mock / Prototype Only
 
@@ -49,7 +51,7 @@ The default repository runtime is local-first and deterministic. It does not use
 
 ## 5. Out of Scope / Remaining Limitations
 
-- Vertex AI and BigQuery Vector Search in the default local runtime.
+- Vertex AI, BigQuery Vector Search, or Gemini in the default local runtime.
 - Real partner API integrations.
 - Autonomous LLM-based agent loops.
 - Conversation memory.
@@ -62,7 +64,7 @@ The default repository runtime is local-first and deterministic. It does not use
 ## 6. Assumptions
 
 - The synthetic catalog is sufficient for local deterministic retrieval tests.
-- Managed semantic retrieval, external integrations, and personalization will be handled in Stage 8 or later.
+- Managed semantic retrieval, external integrations, and personalization require explicit non-default configuration or future production work.
 - The API contract should remain stable across later stages.
 
 ## 7. Success Criteria
@@ -88,4 +90,4 @@ Still future or production-hardening work:
 - Observability, rate limiting, and authentication.
 - Managed ingestion scheduling.
 - Automatic managed-to-local fallback behavior.
-- Optional LLM-assisted intent handling or agent orchestration if required by the product scope.
+- Autonomous LLM agent orchestration if required by the product scope.

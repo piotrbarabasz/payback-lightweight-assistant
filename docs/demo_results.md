@@ -2,7 +2,7 @@
 
 This document summarizes the current API demo behavior for the lightweight assistant.
 
-The default demo is local-first and deterministic. Stage 8 also includes an optional BigQuery/Vertex AI retrieval path, but it should be demonstrated only when the required GCP environment variables, BigQuery catalog rows, and embeddings are actually available.
+The default demo is local-first and deterministic. Stage 8 also includes an optional BigQuery/Vertex AI retrieval path, and Stage 9B includes an optional Vertex/Gemini intent backend. Both managed paths are enabled only through explicit environment variables.
 
 ## Demo Environment
 
@@ -10,6 +10,7 @@ The default demo is local-first and deterministic. Stage 8 also includes an opti
 - The same containerized code path can be smoke-tested locally or on Cloud Run.
 - A default Cloud Run deployment still relies on the packaged synthetic catalog and local retrieval.
 - The optional `bigquery_vector` demo calls Vertex AI and BigQuery from the backend only.
+- The optional `vertex_llm` intent backend calls Vertex/Gemini only to parse structured intent JSON and falls back to rules on failure.
 
 Example Cloud Run service name:
 
@@ -77,8 +78,28 @@ uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 python scripts/smoke_test_api.py
 ```
 
-Do not present this as a completed demo unless the smoke test was actually run
-against the configured GCP backend.
+## Verified GCP Managed Demo
+
+Manual validation has been completed against Cloud Run with the managed GCP path enabled:
+
+- `GET /health` returned `200 OK`.
+- Five smoke-test `POST /assistant/query` calls returned `200 OK`.
+- `RETRIEVAL_BACKEND=bigquery_vector` used Vertex AI query embeddings and BigQuery Vector Search.
+- Product results included BigQuery Vector Search reason text.
+- `INTENT_BACKEND=vertex_llm` was enabled and validated as an optional intent backend.
+- Rules fallback was observed and preserved for invalid or inconsistent model output.
+
+Validated smoke-test query set:
+
+| Query | Expected route | Result |
+| --- | --- | --- |
+| `Bitte zeige mir Angebote fuer guenstige Windeln` | German catalog search | 200 OK |
+| `I need stuff for a pasta dinner` | Discovery/catalog search | 200 OK |
+| `Show me headphones on Amazon` | Partner-specific Amazon search | 200 OK |
+| `Meine PAYBACK Punkte fehlen` | Support routing | 200 OK |
+| `Something nice` | Clarifying question | 200 OK |
+
+For catalog-search queries, managed product results contained reason strings indicating BigQuery Vector Search with Vertex AI query embeddings. Exact scores and product ordering can vary with the BigQuery table contents, embeddings, and model version, so the deterministic examples below remain the stable local reviewer baseline.
 
 ## Query 1: German Specific Search
 
