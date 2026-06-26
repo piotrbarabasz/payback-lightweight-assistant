@@ -38,4 +38,3 @@ AI Engineering Challenge.pdf
 # Local GCP deployment state
 .gcp_image_uri
 .cloud_run_url
-.env.example
