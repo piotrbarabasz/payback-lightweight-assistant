@@ -1,4 +1,4 @@
-"""Future retrieval backend placeholders."""
+"""Optional managed retrieval backends."""
 
 from app.retrieval.backends.bigquery_vector import BigQueryVectorProductRetriever
 

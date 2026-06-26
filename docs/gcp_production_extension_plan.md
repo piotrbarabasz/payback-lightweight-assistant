@@ -1,8 +1,10 @@
 # GCP Production Extension Plan
 
-This document is a future Stage 8 plan. It does not describe functionality that is active in the current Stage 7B runtime.
+This document started as a future Stage 8 plan. Stage 8A, Stage 8B, and Stage
+8C have since added the BigQuery catalog foundation, Vertex AI embedding
+generation, and an optional BigQuery Vector Search retrieval backend.
 
-Stage 7B remains a local-first deterministic MVP. The FastAPI service can run locally, in Docker, or on Cloud Run through the existing deployment scripts. In all of those modes it still uses:
+The default app remains a local-first deterministic MVP. The FastAPI service can run locally, in Docker, or on Cloud Run through the existing deployment scripts. In default mode it still uses:
 
 - the synthetic product catalog in `app/data/products.json`,
 - rule-based intent detection,
@@ -10,16 +12,14 @@ Stage 7B remains a local-first deterministic MVP. The FastAPI service can run lo
 - optional deterministic local hybrid retrieval,
 - local reranking and response formatting.
 
-The current runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, managed embeddings, or an autonomous LLM agent loop.
+The default runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, managed embeddings, or an autonomous LLM agent loop. Managed retrieval is enabled only with explicit Stage 8 configuration.
 
-## Not Implemented Yet
+## Remaining Production Work
 
-The following Stage 8 capabilities are not implemented:
+The following production capabilities still need hardening or remain future work:
 
-- BigQuery product catalog storage.
-- BigQuery vector columns or vector indexes.
-- Vertex AI embedding generation.
-- Cloud Run calls to BigQuery or Vertex AI.
+- BigQuery vector index creation and maintenance automation.
+- Cloud Run configuration for BigQuery or Vertex AI calls.
 - Catalog ingestion jobs.
 - Managed IAM/service-account setup for data and model access.
 - Production observability, rate limiting, authentication, or secret management.
@@ -121,7 +121,7 @@ export GCP_REGION="europe-west1"
 export SERVICE_NAME="payback-lightweight-assistant"
 ```
 
-Stage 8 would likely add:
+Stage 8 managed retrieval uses:
 
 ```bash
 export RETRIEVAL_BACKEND="bigquery_vector"
@@ -134,7 +134,10 @@ export VERTEX_EMBEDDING_MODEL="text-embedding-model-id"
 export ENABLE_LOCAL_RETRIEVAL_FALLBACK="true"
 ```
 
-`RETRIEVAL_BACKEND=bigquery_vector` is accepted by the current configuration only to expose the Stage 8 placeholder backend. It raises `NotImplementedError` if used. The BigQuery, Vertex AI, and fallback variables above are proposed Stage 8 configuration keys and should not be treated as working runtime settings until Stage 8 code exists.
+`RETRIEVAL_BACKEND=bigquery_vector` enables the optional Stage 8C BigQuery
+Vector Search retriever when the required BigQuery and Vertex AI environment
+variables, credentials, and product embeddings are available. The default
+backend remains `keyword`.
 
 ## IAM And Service Account Permissions
 

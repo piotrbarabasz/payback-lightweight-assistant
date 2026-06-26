@@ -39,21 +39,78 @@ if [[ -z "${IMAGE_URI}" ]]; then
   exit 1
 fi
 
+RETRIEVAL_BACKEND="${RETRIEVAL_BACKEND:-keyword}"
+ENV_VARS=(
+  "ENVIRONMENT=gcp-cloud-run"
+  "LOG_LEVEL=info"
+  "CATALOG_PATH=app/data/products.json"
+  "DEFAULT_TOP_K=${DEFAULT_TOP_K:-5}"
+  "MAX_TOP_K=${MAX_TOP_K:-20}"
+  "RETRIEVAL_BACKEND=${RETRIEVAL_BACKEND}"
+)
+
+if [[ "${RETRIEVAL_BACKEND}" == "bigquery_vector" ]]; then
+  REQUIRED_BIGQUERY_VECTOR_ENV_VARS=(
+    BIGQUERY_DATASET
+    BIGQUERY_PRODUCTS_TABLE
+    VERTEX_EMBEDDING_MODEL
+  )
+  for var_name in "${REQUIRED_BIGQUERY_VECTOR_ENV_VARS[@]}"; do
+    if [[ -z "${!var_name:-}" ]]; then
+      echo "Missing required environment variable for RETRIEVAL_BACKEND=bigquery_vector: ${var_name}" >&2
+      exit 1
+    fi
+  done
+
+  BIGQUERY_LOCATION="${BIGQUERY_LOCATION:-${GCP_REGION}}"
+  GCP_LOCATION="${GCP_LOCATION:-${GCP_REGION}}"
+  VERTEX_AI_LOCATION="${VERTEX_AI_LOCATION:-${GCP_LOCATION}}"
+
+  ENV_VARS+=(
+    "GCP_PROJECT_ID=${GCP_PROJECT_ID}"
+    "GCP_LOCATION=${GCP_LOCATION}"
+    "BIGQUERY_DATASET=${BIGQUERY_DATASET}"
+    "BIGQUERY_PRODUCTS_TABLE=${BIGQUERY_PRODUCTS_TABLE}"
+    "BIGQUERY_LOCATION=${BIGQUERY_LOCATION}"
+    "BIGQUERY_VECTOR_TOP_K=${BIGQUERY_VECTOR_TOP_K:-25}"
+    "VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}"
+    "VERTEX_EMBEDDING_MODEL=${VERTEX_EMBEDDING_MODEL}"
+  )
+
+  if [[ -n "${VERTEX_EMBEDDING_DIMENSIONS:-}" ]]; then
+    ENV_VARS+=("VERTEX_EMBEDDING_DIMENSIONS=${VERTEX_EMBEDDING_DIMENSIONS}")
+  fi
+else
+  echo "Deploying with local/default retrieval backend: ${RETRIEVAL_BACKEND}"
+fi
+
+if [[ -n "${CLOUD_RUN_SERVICE_ACCOUNT:-}" ]]; then
+  SERVICE_ACCOUNT_ARGS=(--service-account "${CLOUD_RUN_SERVICE_ACCOUNT}")
+  echo "Using Cloud Run service account: ${CLOUD_RUN_SERVICE_ACCOUNT}"
+else
+  SERVICE_ACCOUNT_ARGS=()
+  echo "Using Cloud Run default service account"
+fi
+
+ENV_VARS_CSV="$(IFS=,; echo "${ENV_VARS[*]}")"
+
 echo "Deploying Cloud Run service: ${SERVICE_NAME}"
 echo "Region: ${GCP_REGION}"
 echo "Image URI: ${IMAGE_URI}"
+echo "Retrieval backend: ${RETRIEVAL_BACKEND}"
 
 gcloud run deploy "${SERVICE_NAME}" \
   --image "${IMAGE_URI}" \
   --region "${GCP_REGION}" \
   --platform managed \
+  "${SERVICE_ACCOUNT_ARGS[@]}" \
   --allow-unauthenticated \
   --port 8080 \
   --memory 512Mi \
   --cpu 1 \
   --min-instances 0 \
   --max-instances 3 \
-  --set-env-vars ENVIRONMENT=gcp-cloud-run,LOG_LEVEL=info,CATALOG_PATH=app/data/products.json,DEFAULT_TOP_K=5,MAX_TOP_K=20 \
+  --set-env-vars "${ENV_VARS_CSV}" \
   --project="${GCP_PROJECT_ID}"
 
 SERVICE_URL="$(gcloud run services describe "${SERVICE_NAME}" \

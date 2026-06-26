@@ -32,6 +32,9 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   cloudbuild.googleapis.com \
   logging.googleapis.com \
+  iam.googleapis.com \
+  bigquery.googleapis.com \
+  aiplatform.googleapis.com \
   --project="${GCP_PROJECT_ID}"
 
 echo "Project setup complete for region ${GCP_REGION}"

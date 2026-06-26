@@ -33,6 +33,7 @@ Stage history:
 - Pluggable intent detector backend with rule-based detection as the default.
 - Rule-based language and intent detection.
 - Local keyword retrieval.
+- Optional Vertex AI text embedding provider.
 - Docker and Docker Compose support.
 - Minimal Cloud Run deployment scripts for the existing containerized FastAPI app.
 - Demo script and smoke tests.
@@ -44,14 +45,12 @@ Stage history:
 - Synthetic in-repository catalog instead of real partner APIs.
 - Local in-memory retrieval instead of a managed database or vector index.
 - Optional `hybrid` retrieval backend using deterministic local hash embeddings.
-- Placeholder modules for future Vertex AI and BigQuery-backed components; these make no external calls.
+- Placeholder modules for future BigQuery-backed retrieval components; these make no external calls.
 - Cloud Run scripts that deploy the current containerized local MVP, still using the packaged synthetic catalog.
 
 ### Not Implemented
 
-- Vertex AI embeddings.
-- BigQuery product catalog.
-- BigQuery Vector Search.
+- Vertex AI and BigQuery Vector Search are optional and not enabled by default.
 - Real partner API integrations.
 - Autonomous LLM agent loop.
 - Conversation memory.
@@ -59,7 +58,15 @@ Stage history:
 
 ### Future Stage 8
 
-Stage 8 is the planned production-integration stage. It can add real GCP-backed capabilities such as Vertex AI embeddings, BigQuery product storage, BigQuery Vector Search, ingestion jobs, IAM/secrets setup, observability, and managed retrieval fallbacks. None of those Stage 8 capabilities are active in the current Stage 7B runtime.
+Stage 8 is the planned production-integration stage. Stage 8A added manual BigQuery catalog foundation scripts, Stage 8B added an optional Vertex AI text embedding provider and product embedding generation script, and Stage 8C adds an optional BigQuery Vector Search retrieval backend. The default local retrieval path remains unchanged.
+
+Stage 8A BigQuery catalog setup and load instructions are documented in [docs/stage_8a_bigquery_catalog.md](docs/stage_8a_bigquery_catalog.md). These scripts are manual utilities only and do not change the default local API behavior.
+
+Stage 8B Vertex AI embedding provider setup is documented in [docs/stage_8b_vertex_embeddings.md](docs/stage_8b_vertex_embeddings.md).
+
+Stage 8C BigQuery Vector Search setup is documented in [docs/stage_8c_bigquery_vector_search.md](docs/stage_8c_bigquery_vector_search.md). Enable it explicitly with `RETRIEVAL_BACKEND=bigquery_vector` after product embeddings exist.
+
+Stage 8D Cloud Run runtime setup for BigQuery and Vertex AI service-account access is documented in [docs/stage_8d_cloud_run_gcp_runtime.md](docs/stage_8d_cloud_run_gcp_runtime.md).
 
 ## Design Trade-offs
 
@@ -71,8 +78,7 @@ Stage 8 is the planned production-integration stage. It can add real GCP-backed 
 ## Known Limitations
 
 - No real partner API integrations are implemented.
-- No Vertex AI embeddings or managed LLM calls are implemented.
-- No BigQuery product catalog or BigQuery Vector Search is implemented.
+- Vertex AI and BigQuery Vector Search require explicit Stage 8 configuration and are not used by default API retrieval.
 - No conversation memory, production authentication, rate limiting, or monitoring is implemented.
 - The catalog is synthetic and intentionally small.
 - The current assistant is deterministic rather than generative.
@@ -300,9 +306,19 @@ Runtime configuration is environment-based:
 | `LOG_LEVEL` | `info` | Uvicorn log level. |
 | `CATALOG_PATH` | `app/data/products.json` | Local catalog JSON path. |
 | `INTENT_BACKEND` | `rules` | Intent detector selector. Supported values: `rules`, `vertex_placeholder`. The placeholder makes no external calls and raises `NotImplementedError` if used. |
-| `RETRIEVAL_BACKEND` | `keyword` | Retrieval backend selector. Supported values: `keyword`, `hybrid`, `bigquery_vector`. The `bigquery_vector` backend is a Stage 8 placeholder only and raises `NotImplementedError` if used. |
+| `RETRIEVAL_BACKEND` | `keyword` | Retrieval backend selector. Supported values: `keyword`, `hybrid`, `bigquery_vector`. The `bigquery_vector` backend is optional and requires Stage 8C GCP configuration. |
 | `DEFAULT_TOP_K` | `5` | Default assistant result count. |
 | `MAX_TOP_K` | `20` | Maximum assistant result count. |
+| `GCP_PROJECT_ID` | empty | Google Cloud project for optional Stage 8 utilities. Required when constructing the Vertex embedding provider. |
+| `GCP_LOCATION` | `europe-west1` | Google Cloud location for optional Stage 8 utilities. Can be used by the Vertex embedding provider. |
+| `BIGQUERY_DATASET` | `payback_catalog` | BigQuery dataset for optional Stage 8 catalog and vector retrieval. |
+| `BIGQUERY_PRODUCTS_TABLE` | `products` | BigQuery products table for optional Stage 8 catalog and vector retrieval. |
+| `BIGQUERY_LOCATION` | `europe-west1` | BigQuery job and dataset location. |
+| `BIGQUERY_VECTOR_TOP_K` | `25` | Candidate pool size for optional BigQuery Vector Search retrieval. |
+| `BIGQUERY_VECTOR_INDEX` | `products_embedding_idx` | Optional BigQuery vector index name used by the Stage 8C index setup script. |
+| `VERTEX_AI_LOCATION` | empty | Optional Vertex AI location override for embeddings. Takes precedence over `GCP_LOCATION`. |
+| `VERTEX_EMBEDDING_MODEL` | empty | Vertex text embedding model id. Required when constructing the Vertex embedding provider. |
+| `VERTEX_EMBEDDING_DIMENSIONS` | empty | Optional output dimensionality for models that support it. |
 
 ## Local Setup
 
@@ -499,11 +515,9 @@ and relevance score.
 
 ## Future Stage 8
 
-Stage 8 should be treated as future production integration work. Candidate additions:
+Stage 8 should be treated as production integration work. Candidate additions:
 
-- Vertex AI text embeddings for queries and product text.
-- BigQuery product catalog storage.
-- BigQuery Vector Search for semantic candidate retrieval.
+- Hardening Vertex AI and BigQuery Vector Search retrieval for production traffic.
 - Offline catalog ingestion and embedding refresh jobs.
 - Production IAM, Secret Manager, observability, rate limiting, and authentication.
 - Optional LLM-assisted intent handling or agent orchestration, if required.

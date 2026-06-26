@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Stage 6 deploys the existing Dockerized FastAPI assistant API to Google Cloud Run using Artifact Registry as the container image repository.
+Stage 6 deploys the existing Dockerized FastAPI assistant API to Google Cloud Run using Artifact Registry as the container image repository. By default this still deploys the local keyword retrieval backend. Stage 8D adds optional BigQuery and Vertex AI runtime configuration for `RETRIEVAL_BACKEND=bigquery_vector`; see [stage_8d_cloud_run_gcp_runtime.md](stage_8d_cloud_run_gcp_runtime.md).
 
 ## 2. Architecture
 
@@ -22,6 +22,7 @@ Local machine
 - `gcloud` CLI installed and authenticated.
 - Docker installed and running locally.
 - Required permissions to enable APIs, create Artifact Registry repositories, and deploy Cloud Run services.
+- For the optional BigQuery Vector backend, a Cloud Run service account with BigQuery and Vertex AI IAM access.
 
 ## 4. Environment Variables
 
@@ -34,6 +35,8 @@ export ARTIFACT_REPOSITORY="payback-assistant"
 export IMAGE_NAME="payback-lightweight-assistant"
 export IMAGE_TAG="latest"
 export SERVICE_NAME="payback-lightweight-assistant"
+# Optional, defaults to keyword if unset.
+export RETRIEVAL_BACKEND="keyword"
 ```
 
 ## 5. Deployment Commands
@@ -83,10 +86,8 @@ The deployment script configures Cloud Run with:
 
 ## 8. Limitations
 
-- The API still uses the local synthetic catalog packaged in the container.
-- No BigQuery yet.
-- No Vertex AI yet.
-- No embeddings yet.
+- The default deployment still uses the local synthetic catalog packaged in the container.
+- BigQuery and Vertex AI are optional Stage 8 runtime integrations and must be configured explicitly.
 - No real partner API integrations yet.
 
 ## 9. Future Improvements
@@ -94,7 +95,6 @@ The deployment script configures Cloud Run with:
 - Cloud Build.
 - GitHub Actions deployment.
 - Secret Manager.
-- BigQuery product catalog.
-- Vertex AI embeddings.
-- BigQuery Vector Search.
+- Production IAM hardening.
+- Automated managed retrieval fallback.
 - Authenticated endpoints.

@@ -49,6 +49,16 @@ class Settings:
     RETRIEVAL_BACKEND: str = "keyword"
     DEFAULT_TOP_K: int = 5
     MAX_TOP_K: int = 20
+    GCP_PROJECT_ID: str = ""
+    GCP_LOCATION: str = "europe-west1"
+    GCP_REGION: str = "europe-west1"
+    BIGQUERY_DATASET: str = "payback_catalog"
+    BIGQUERY_PRODUCTS_TABLE: str = "products"
+    BIGQUERY_LOCATION: str = "europe-west1"
+    BIGQUERY_VECTOR_TOP_K: int = 25
+    VERTEX_AI_LOCATION: str = ""
+    VERTEX_EMBEDDING_MODEL: str = ""
+    VERTEX_EMBEDDING_DIMENSIONS: int = 0
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -72,6 +82,28 @@ class Settings:
             ),
             DEFAULT_TOP_K=_env_int("DEFAULT_TOP_K", cls.DEFAULT_TOP_K),
             MAX_TOP_K=_env_int("MAX_TOP_K", cls.MAX_TOP_K),
+            GCP_PROJECT_ID=_env_str("GCP_PROJECT_ID", cls.GCP_PROJECT_ID),
+            GCP_LOCATION=_env_str("GCP_LOCATION", cls.GCP_LOCATION),
+            GCP_REGION=_env_str("GCP_REGION", cls.GCP_REGION),
+            BIGQUERY_DATASET=_env_str("BIGQUERY_DATASET", cls.BIGQUERY_DATASET),
+            BIGQUERY_PRODUCTS_TABLE=_env_str(
+                "BIGQUERY_PRODUCTS_TABLE",
+                cls.BIGQUERY_PRODUCTS_TABLE,
+            ),
+            BIGQUERY_LOCATION=_env_str("BIGQUERY_LOCATION", cls.BIGQUERY_LOCATION),
+            BIGQUERY_VECTOR_TOP_K=_env_int(
+                "BIGQUERY_VECTOR_TOP_K",
+                cls.BIGQUERY_VECTOR_TOP_K,
+            ),
+            VERTEX_AI_LOCATION=_env_str("VERTEX_AI_LOCATION", cls.VERTEX_AI_LOCATION),
+            VERTEX_EMBEDDING_MODEL=_env_str(
+                "VERTEX_EMBEDDING_MODEL",
+                cls.VERTEX_EMBEDDING_MODEL,
+            ),
+            VERTEX_EMBEDDING_DIMENSIONS=_env_int(
+                "VERTEX_EMBEDDING_DIMENSIONS",
+                cls.VERTEX_EMBEDDING_DIMENSIONS,
+            ),
         )
 
 

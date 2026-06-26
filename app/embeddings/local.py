@@ -31,6 +31,11 @@ class LocalHashEmbeddingProvider:
 
         return _l2_normalize(vector)
 
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of texts locally."""
+
+        return [self.embed_text(text) for text in texts]
+
 
 def _tokens(text: str) -> list[str]:
     if not text:

@@ -4,7 +4,7 @@
 
 The lightweight assistant is a backend API for a PAYBACK-like shopping assistant. It receives a raw user query and returns either structured product recommendations or a clarifying question when the query is too vague to route confidently.
 
-The current repository state is **Stage 7B: completed local MVP and pre-Stage 8 readiness**. Stage 7B is local-first and deterministic. It does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop.
+The default repository runtime is local-first and deterministic. It does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop unless an optional Stage 8 backend is explicitly configured.
 
 ## 2. Stage Goals
 
@@ -40,14 +40,12 @@ The current repository state is **Stage 7B: completed local MVP and pre-Stage 8 
 - The catalog is synthetic and checked into the repository.
 - Retrieval is in-process and uses local data.
 - The optional `hybrid` backend is a deterministic local prototype, not managed semantic search.
-- Future Vertex AI and BigQuery modules are placeholders only and are not part of the runtime path.
+- Vertex AI and BigQuery Vector Search are optional Stage 8 extensions and are not part of the default runtime path.
 - Cloud Run deployment keeps the same local MVP behavior inside a container.
 
 ## 5. Out of Scope For Stage 7B
 
-- Vertex AI embeddings.
-- BigQuery product catalog.
-- BigQuery Vector Search.
+- Vertex AI and BigQuery Vector Search in the default local runtime.
 - Real partner API integrations.
 - Autonomous LLM-based agent loops.
 - Conversation memory.

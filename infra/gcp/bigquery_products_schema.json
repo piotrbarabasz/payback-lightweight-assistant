@@ -1,0 +1,116 @@
+[
+  {
+    "name": "product_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Stable product identifier from the source catalog, prefixed by partner."
+  },
+  {
+    "name": "partner",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Partner identifier, for example dm, edeka, or amazon."
+  },
+  {
+    "name": "name",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Primary English product name."
+  },
+  {
+    "name": "name_de",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "German product name from the local synthetic catalog."
+  },
+  {
+    "name": "category",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Product category used for filtering and retrieval."
+  },
+  {
+    "name": "description",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Primary English product description."
+  },
+  {
+    "name": "description_de",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "German product description from the local synthetic catalog."
+  },
+  {
+    "name": "brand",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Product brand."
+  },
+  {
+    "name": "price",
+    "type": "FLOAT",
+    "mode": "REQUIRED",
+    "description": "Current product price in the listed currency."
+  },
+  {
+    "name": "currency",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "ISO 4217 currency code, for example EUR."
+  },
+  {
+    "name": "tags",
+    "type": "STRING",
+    "mode": "REPEATED",
+    "description": "English tags used by the local keyword and hybrid retrieval paths."
+  },
+  {
+    "name": "tags_de",
+    "type": "STRING",
+    "mode": "REPEATED",
+    "description": "German tags from the local synthetic catalog."
+  },
+  {
+    "name": "availability",
+    "type": "BOOLEAN",
+    "mode": "NULLABLE",
+    "description": "Whether the product is currently available."
+  },
+  {
+    "name": "popularity_score",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Synthetic popularity signal between 0 and 1."
+  },
+  {
+    "name": "is_promotion",
+    "type": "BOOLEAN",
+    "mode": "NULLABLE",
+    "description": "Whether the product currently has an active promotion."
+  },
+  {
+    "name": "product_url",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Partner product detail URL when available."
+  },
+  {
+    "name": "embedding_text",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Deterministic text prepared for future embedding generation."
+  },
+  {
+    "name": "embedding",
+    "type": "FLOAT",
+    "mode": "REPEATED",
+    "description": "Future vector embedding values. Empty until Stage 8B or later."
+  },
+  {
+    "name": "updated_at",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Timestamp for the last catalog row refresh."
+  }
+]

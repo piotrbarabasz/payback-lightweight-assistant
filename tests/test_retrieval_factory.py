@@ -38,7 +38,7 @@ def test_get_product_retriever_uses_explicit_hybrid_config(monkeypatch) -> None:
     assert isinstance(retriever, HybridProductRetriever)
 
 
-def test_get_product_retriever_uses_bigquery_vector_placeholder_config(
+def test_get_product_retriever_uses_bigquery_vector_config(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("RETRIEVAL_BACKEND", "bigquery_vector")
@@ -71,15 +71,7 @@ def test_get_product_retriever_accepts_bigquery_vector_backend_argument() -> Non
     assert isinstance(retriever, BigQueryVectorProductRetriever)
 
 
-def test_bigquery_vector_backend_argument_fails_when_used() -> None:
+def test_bigquery_vector_backend_argument_returns_optional_backend() -> None:
     retriever = get_product_retriever("bigquery_vector")
 
     assert isinstance(retriever, BigQueryVectorProductRetriever)
-    with pytest.raises(
-        NotImplementedError,
-        match=(
-            "BigQuery Vector Search retrieval is not implemented "
-            "in the MVP.*Stage 8"
-        ),
-    ):
-        retriever.retrieve(query="cheap pasta", products=[], top_k=3)
