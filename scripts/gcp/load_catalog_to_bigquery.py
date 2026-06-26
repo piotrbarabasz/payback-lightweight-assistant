@@ -18,6 +18,7 @@ from scripts.gcp.create_bigquery_catalog import (
     BigQueryCatalogConfig,
     load_config,
     load_schema_fields,
+    to_bigquery_schema,
 )
 
 
@@ -153,25 +154,26 @@ def load_rows_to_bigquery(
     config: BigQueryCatalogConfig,
     rows: Sequence[Mapping[str, Any]],
     mode: str,
+    schema_fields: Sequence[Mapping[str, Any]],
+    *,
+    client: Any | None = None,
+    bigquery_module: Any | None = None,
 ) -> int:
-    try:
-        from google.cloud import bigquery
-    except ImportError as exc:
-        raise RuntimeError(
-            "google-cloud-bigquery is required. Install dependencies with "
-            "`pip install -r requirements.txt`."
-        ) from exc
+    if bigquery_module is None:
+        try:
+            from google.cloud import bigquery as bigquery_module
+        except ImportError as exc:
+            raise RuntimeError(
+                "google-cloud-bigquery is required. Install dependencies with "
+                "`pip install -r requirements.txt`."
+            ) from exc
 
-    client = bigquery.Client(project=config.project_id, location=config.location)
-    write_disposition = (
-        bigquery.WriteDisposition.WRITE_TRUNCATE
-        if mode == "replace"
-        else bigquery.WriteDisposition.WRITE_APPEND
-    )
-    job_config = bigquery.LoadJobConfig(
-        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-        write_disposition=write_disposition,
-    )
+    if client is None:
+        client = bigquery_module.Client(
+            project=config.project_id,
+            location=config.location,
+        )
+    job_config = build_load_job_config(schema_fields, mode, bigquery_module)
     load_job = client.load_table_from_json(
         list(rows),
         config.table_fqn,
@@ -179,6 +181,28 @@ def load_rows_to_bigquery(
     )
     load_job.result()
     return int(load_job.output_rows or len(rows))
+
+
+def build_load_job_config(
+    schema_fields: Sequence[Mapping[str, Any]],
+    mode: str,
+    bigquery_module: Any,
+) -> Any:
+    if mode not in SUPPORTED_LOAD_MODES:
+        raise ValueError(f"Unsupported load mode: {mode}")
+
+    write_disposition = (
+        bigquery_module.WriteDisposition.WRITE_TRUNCATE
+        if mode == "replace"
+        else bigquery_module.WriteDisposition.WRITE_APPEND
+    )
+    job_config = bigquery_module.LoadJobConfig(
+        source_format=bigquery_module.SourceFormat.NEWLINE_DELIMITED_JSON,
+        write_disposition=write_disposition,
+        schema=to_bigquery_schema(schema_fields, bigquery_module),
+    )
+    job_config.autodetect = False
+    return job_config
 
 
 def print_summary(
@@ -214,7 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(sample_rows, indent=2, ensure_ascii=False))
         return 0
 
-    rows_loaded = load_rows_to_bigquery(config, rows, args.mode)
+    rows_loaded = load_rows_to_bigquery(config, rows, args.mode, schema_fields)
     print_summary(catalog_path, len(products), rows_loaded, config)
     print(f"Load mode: {args.mode}")
     return 0

@@ -87,15 +87,22 @@ By default the loader uses safe append mode:
 ```
 
 To replace the current table contents, pass `--mode replace`. This uses a
-truncate load job and should be run only when replacing the catalog snapshot is
+truncate load job with the checked-in BigQuery schema supplied explicitly, so
+`embedding` remains `REPEATED FLOAT` even though pre-embedding catalog rows
+contain `embedding: []`. Run it only when replacing the catalog snapshot is
 intended:
 
 ```powershell
 .\.venv312\Scripts\python.exe scripts\gcp\load_catalog_to_bigquery.py --mode replace
 ```
 
-The loader builds `embedding_text` for Stage 8B embedding generation, but it does not
-call Vertex AI, generate embeddings, or create BigQuery Vector Search indexes.
+If the table was previously created with a stale `embedding` schema such as
+`REPEATED STRING`, recreate the table with `create_bigquery_catalog.py` before
+loading rows again.
+
+The loader builds `embedding_text` for Stage 8B embedding generation, but it does
+not call Vertex AI, generate embeddings, or create BigQuery Vector Search
+indexes.
 
 ## Verify Loaded Catalog
 
