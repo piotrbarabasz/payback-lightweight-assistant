@@ -4,7 +4,7 @@ This document describes the current architecture of the `payback-lightweight-ass
 
 The application is a lightweight FastAPI microservice that receives a raw user query and returns a structured response containing either recommended products or a clarifying question.
 
-The default runtime is a completed local MVP. Stage 8 adds optional GCP-backed retrieval components: BigQuery catalog storage, Vertex AI text embeddings, BigQuery Vector Search, and Cloud Run service-account configuration. These managed components are used only when explicitly configured.
+The default runtime is a completed local MVP. Stage 8 adds optional GCP-backed retrieval components: BigQuery catalog storage, Vertex AI text embeddings, BigQuery Vector Search, and Cloud Run service-account configuration. These managed components are used only when explicitly configured. The application has a lightweight deterministic agent layer for intent detection, decisions, and assistant orchestration; it is not an autonomous LLM loop by default.
 
 ## High-Level Goal
 
@@ -33,15 +33,18 @@ flowchart LR
 
     API --> EP[POST /assistant/query]
 
-    EP --> INTENT[Intent Detection Module]
+    EP --> IAGENT[Intent Detection Agent]
+    IAGENT --> INTENT[Intent Detection Module]
     INTENT --> LANG[Language Detection]
     INTENT --> ENT[Entity Extraction]
-    INTENT --> DECISION[Next Best Action Decision]
+    INTENT --> DAGENT[Decision Agent]
+    DAGENT --> DECISION[Next Best Action Decision]
+    DECISION --> AAGENT[Assistant Agent]
 
-    DECISION -->|specific search| FACTORY[Retrieval Backend Factory]
-    DECISION -->|partner-specific| FACTORY
-    DECISION -->|vague query| CLARIFY[Clarifying Question Generator]
-    DECISION -->|support intent| SUPPORT[Support Routing]
+    AAGENT -->|specific search| FACTORY[Retrieval Backend Factory]
+    AAGENT -->|partner-specific| FACTORY
+    AAGENT -->|vague query| CLARIFY[Clarifying Question Generator]
+    AAGENT -->|support intent| SUPPORT[Support Routing]
 
     FACTORY --> KEYWORD[Keyword Backend]
     FACTORY --> HYBRID[Local Hybrid Backend]
@@ -128,7 +131,19 @@ Main endpoints:
 
 The main endpoint accepts a user query and returns a structured response with language, intent, specificity, next best action, extracted entities, and recommendation results.
 
-### 2. Intent Detection Module
+### 2. Lightweight Agent Layer
+
+The project makes the decision architecture explicit with small deterministic agents:
+
+| Agent | Module | Responsibility |
+| ----- | ------ | -------------- |
+| `IntentDetectionAgent` | `app/agents/intent_detection.py` | Delegates to the configured intent backend. The default backend is `rules`. |
+| `DecisionAgent` | `app/agents/decision.py` | Wraps the existing next-best-action and clarifying-question policy. |
+| `AssistantAgent` | `app/agents/assistant.py` | Coordinates intent results, retrieval, no-retrieval actions, comparison summaries, and response assembly. |
+
+These agents are deterministic facades over the existing service modules. They do not introduce LangChain, CrewAI, AutoGen, autonomous tool execution, conversation memory, or recursive LLM planning. A future Vertex AI or Gemini intent backend could be added behind `IntentDetectionAgent` without changing the public API schema.
+
+### 3. Intent Detection Module
 
 The intent detection module analyzes the raw user query and detects:
 
@@ -151,7 +166,7 @@ Supported intent types include:
 | `customer_support` | User needs support rather than product search              |
 | `unknown`          | Intent cannot be confidently identified                    |
 
-### 3. Next Best Action Decision
+### 4. Next Best Action Decision
 
 Based on intent and specificity, the system decides what to do next.
 
@@ -165,7 +180,7 @@ Possible next best actions:
 | `ask_clarifying_question` | Return a clarifying question instead of weak results |
 | `route_to_support`        | Route the user to customer support flow              |
 
-### 4. Synthetic Product Catalog
+### 5. Synthetic Product Catalog
 
 The MVP uses a synthetic in-repository catalog representing three partner ecosystems:
 
@@ -188,7 +203,7 @@ Each product contains structured fields such as:
 
 This allows the retrieval engine to simulate cross-partner product discovery without relying on external APIs.
 
-### 5. Retrieval Engine
+### 6. Retrieval Engine
 
 The retrieval engine is deterministic and lightweight by default.
 
@@ -223,7 +238,7 @@ The `bigquery_vector` backend embeds each user query with Vertex AI, queries Big
 
 The default retrieval approach remains intentionally simple, explainable, and cost-efficient.
 
-### 6. Response Builder
+### 7. Response Builder
 
 The assistant returns a structured JSON response containing:
 

@@ -2,7 +2,9 @@
 
 ## 1. Purpose
 
-Stage 7B keeps deterministic rule-based intent detection as the default behavior and wraps it in a small pluggable backend interface. This makes the current design explicit while leaving room for a future Vertex AI or LLM-backed detector.
+Stage 7B keeps deterministic rule-based intent detection as the default behavior and wraps it in a small pluggable backend interface. The current implementation also exposes this behavior through a lightweight deterministic `IntentDetectionAgent`, with `DecisionAgent` and `AssistantAgent` making the routing and orchestration boundaries explicit.
+
+This is not an autonomous LLM loop by default. The default `rules` backend is deterministic, single-pass, and local. A future Vertex AI or Gemini intent backend could be added behind the same agent interface, but the checked-in external backend remains a placeholder only.
 
 The module returns an internal `IntentDetectionResult` with language, entities, partner hints, intent, specificity, next best action, confidence, and optional clarification text. The API response remains `AssistantQueryResponse`.
 
@@ -10,18 +12,32 @@ The module returns an internal `IntentDetectionResult` with language, entities, 
 
 ```text
 query
+-> IntentDetectionAgent
+-> configured intent backend
 -> language detection
 -> entity extraction
 -> partner hint detection
 -> intent classification
 -> specificity classification
--> next best action decision
+-> DecisionAgent next best action policy
 -> optional clarifying question
 ```
 
-The public intent service lives in `app/intent/service.py`. It delegates to the configured backend through `app/intent/factory.py`. Retrieval-aware response assembly remains outside the route handler in `app/assistant/service.py`.
+The public intent service lives in `app/intent/service.py`. It delegates to `app/agents/intent_detection.py`, which delegates to the configured backend through `app/intent/factory.py`. Retrieval-aware response assembly remains outside the route handler in `app/assistant/service.py`, which delegates to `app/agents/assistant.py`.
 
-## 3. Intent Backends
+## 3. Agent Layer
+
+The agent layer is intentionally small and deterministic:
+
+| Agent | Responsibility |
+| --- | --- |
+| `IntentDetectionAgent` | Calls the configured intent detector backend. Defaults to the existing rule-based detector. |
+| `DecisionAgent` | Wraps the existing next-best-action and clarifying-question rules. |
+| `AssistantAgent` | Coordinates intent results, no-retrieval actions, catalog retrieval, comparison summaries, and final `AssistantQueryResponse` assembly. |
+
+The layer does not introduce LangChain, CrewAI, AutoGen, tool planning, recursive reasoning, memory, or autonomous multi-step execution.
+
+## 4. Intent Backends
 
 The backend is selected with `INTENT_BACKEND`.
 
@@ -32,13 +48,13 @@ The backend is selected with `INTENT_BACKEND`.
 
 The current service does not call Vertex AI, Gemini, external LLM APIs, LangChain, or Google Cloud client libraries for intent detection.
 
-## 4. Supported Languages
+## 5. Supported Languages
 
 - `de`: German
 - `en`: English
 - `unknown`: fallback when language signals are unclear
 
-## 5. Supported Intents
+## 6. Supported Intents
 
 - `search`
 - `discovery`
@@ -46,14 +62,14 @@ The current service does not call Vertex AI, Gemini, external LLM APIs, LangChai
 - `customer_support`
 - `unknown`
 
-## 6. Specificity Types
+## 7. Specificity Types
 
 - `specific`
 - `vague`
 - `navigational`
 - `unknown`
 
-## 7. Next Best Actions
+## 8. Next Best Actions
 
 - `search_catalog`
 - `ask_clarifying_question`
@@ -62,7 +78,7 @@ The current service does not call Vertex AI, Gemini, external LLM APIs, LangChai
 - `route_to_support`
 - `fallback`
 
-## 8. Comparison Response Behavior
+## 9. Comparison Response Behavior
 
 Comparison intent uses `next_best_action: compare_products`. Retrieval remains
 deterministic and local, but the assistant response is comparison-oriented:
@@ -78,7 +94,7 @@ deterministic and local, but the assistant response is comparison-oriented:
 
 No LLM calls are used for this behavior.
 
-## 9. Example Outputs
+## 10. Example Outputs
 
 German diaper search:
 
@@ -164,20 +180,21 @@ Vague query:
 }
 ```
 
-## 10. Limitations
+## 11. Limitations
 
 - Default backend is rule-based.
 - Vertex/LLM backend is a placeholder only.
 - No Vertex AI, Gemini, or external LLM calls.
+- No autonomous LLM loop or multi-agent framework.
 - Limited German and English language detection.
 - Limited entity extraction.
 - No personalization.
 - No context memory.
 
-## 11. Future Improvements
+## 12. Future Improvements
 
-- Optional LLM provider.
-- Vertex AI / Gemini structured output.
+- Optional Vertex AI or Gemini intent backend behind `IntentDetectionAgent`.
+- Optional structured output validation for an external intent backend.
 - Confidence calibration.
 - Multilingual expansion.
 - More robust entity extraction.

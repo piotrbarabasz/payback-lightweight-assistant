@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from app.intent.factory import get_intent_detector
+from app.agents.intent_detection import IntentDetectionAgent
 from app.schemas import IntentDetectionResult
 
 
 def analyze_query_intent(query: str) -> IntentDetectionResult:
-    """Analyze a raw query with the configured intent detector backend."""
+    """Analyze a raw query with the configured intent detection agent."""
 
-    return get_intent_detector().analyze(query)
+    return IntentDetectionAgent().analyze(query)

@@ -11,7 +11,7 @@ The code is intentionally scoped for reproducibility, reviewability, and low ope
 
 This repository is currently at **Stage 8D: local MVP with optional GCP vector retrieval integration**.
 
-The default runtime remains local-first and deterministic. Stage 8 adds optional BigQuery, Vertex AI, BigQuery Vector Search, and Cloud Run runtime configuration paths that must be enabled explicitly. The project is still not an autonomous LLM agent system.
+The default runtime remains local-first and deterministic. Stage 8 adds optional BigQuery, Vertex AI, BigQuery Vector Search, and Cloud Run runtime configuration paths that must be enabled explicitly. The project implements a lightweight deterministic Intent Detection Agent and assistant orchestration agent, but it is still not an autonomous LLM agent system.
 
 Stage history:
 
@@ -34,6 +34,7 @@ Stage history:
 
 - FastAPI backend.
 - Local synthetic product catalog.
+- Lightweight deterministic `IntentDetectionAgent`, `DecisionAgent`, and `AssistantAgent` abstractions.
 - Pluggable intent detector backend with rule-based detection as the default.
 - Rule-based language and intent detection.
 - Local keyword retrieval.
@@ -61,6 +62,7 @@ Stage history:
 - Vertex AI and BigQuery Vector Search are optional and not enabled by default.
 - Real partner API integrations.
 - Autonomous LLM agent loop.
+- Vertex AI or Gemini intent backend. The current external intent backend is only a placeholder.
 - Conversation memory.
 - Production authentication, rate limiting, and monitoring.
 
@@ -80,10 +82,11 @@ Stage 8 reviewer checklist is documented in [docs/stage_8_final_checklist.md](do
 
 ## Design Trade-offs
 
-- Deterministic routing is used instead of an LLM-based agent loop to keep latency low, costs predictable, and behavior reproducible.
+- A lightweight deterministic agent layer is used instead of an autonomous LLM-based agent loop to keep latency low, costs predictable, and behavior reproducible.
 - A local synthetic catalog is used instead of real partner APIs to keep the challenge self-contained and easy to run.
 - Cloud Run deployment scripts are included instead of a full GCP-native data stack so the repository stays lightweight while still showing deployment competence.
 - The retrieval and intent layers are pluggable so future Vertex AI or BigQuery-backed components can be added without changing the public API contract.
+- A future Vertex AI or Gemini intent backend could be added behind `IntentDetectionAgent`, while preserving the current deterministic `rules` backend as the default.
 
 ## Known Limitations
 
@@ -97,8 +100,9 @@ Stage 8 reviewer checklist is documented in [docs/stage_8_final_checklist.md](do
 
 ```text
 User query
--> Intent Detection Service
--> Decision Layer
+-> Intent Detection Agent
+-> Decision Agent
+-> Assistant Agent
 -> Retrieval Engine
 -> Product Results or Clarifying Question
 ```
@@ -225,6 +229,7 @@ Semantic retrieval details are documented in [docs/semantic_retrieval.md](docs/s
 ## Stage 4: Intent Detection Module
 
 Stage 4 moves temporary route-level intent rules into a testable `app/intent/` package and keeps HTTP handlers thin.
+The current code also exposes those deterministic rules through `app/agents/intent_detection.py`, with `DecisionAgent` and `AssistantAgent` making the decision and orchestration boundaries explicit.
 
 What was added:
 
@@ -236,6 +241,7 @@ What was added:
 - Next best action decision.
 - Clarifying question generation.
 - Integration with `POST /assistant/query`.
+- Lightweight deterministic agent abstractions without LangChain, CrewAI, AutoGen, or an autonomous LLM loop.
 
 Intent detection details are documented in [docs/intent_detection.md](docs/intent_detection.md).
 
