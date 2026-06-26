@@ -303,7 +303,7 @@ def test_main_dry_run_validates_and_prints_sample_rows(monkeypatch, capsys) -> N
 
     output = capsys.readouterr().out
     assert result == 0
-    assert "Source file: app\\data\\products.json" in output
+    assert "Source file: app/data/products.json" in output.replace("\\", "/")
     assert "Products read: 150" in output
     assert "Products loaded: 0" in output
     assert "Target table: payback-dev.payback_catalog.products" in output
