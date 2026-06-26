@@ -44,6 +44,8 @@ ENV_VARS=(
   "ENVIRONMENT=gcp-cloud-run"
   "LOG_LEVEL=info"
   "CATALOG_PATH=app/data/products.json"
+  "GCP_PROJECT_ID=${GCP_PROJECT_ID}"
+  "GCP_REGION=${GCP_REGION}"
   "DEFAULT_TOP_K=${DEFAULT_TOP_K:-5}"
   "MAX_TOP_K=${MAX_TOP_K:-20}"
   "RETRIEVAL_BACKEND=${RETRIEVAL_BACKEND}"
@@ -51,8 +53,12 @@ ENV_VARS=(
 
 if [[ "${RETRIEVAL_BACKEND}" == "bigquery_vector" ]]; then
   REQUIRED_BIGQUERY_VECTOR_ENV_VARS=(
+    CLOUD_RUN_SERVICE_ACCOUNT
+    GCP_LOCATION
     BIGQUERY_DATASET
     BIGQUERY_PRODUCTS_TABLE
+    BIGQUERY_LOCATION
+    VERTEX_AI_LOCATION
     VERTEX_EMBEDDING_MODEL
   )
   for var_name in "${REQUIRED_BIGQUERY_VECTOR_ENV_VARS[@]}"; do
@@ -62,12 +68,7 @@ if [[ "${RETRIEVAL_BACKEND}" == "bigquery_vector" ]]; then
     fi
   done
 
-  BIGQUERY_LOCATION="${BIGQUERY_LOCATION:-${GCP_REGION}}"
-  GCP_LOCATION="${GCP_LOCATION:-${GCP_REGION}}"
-  VERTEX_AI_LOCATION="${VERTEX_AI_LOCATION:-${GCP_LOCATION}}"
-
   ENV_VARS+=(
-    "GCP_PROJECT_ID=${GCP_PROJECT_ID}"
     "GCP_LOCATION=${GCP_LOCATION}"
     "BIGQUERY_DATASET=${BIGQUERY_DATASET}"
     "BIGQUERY_PRODUCTS_TABLE=${BIGQUERY_PRODUCTS_TABLE}"
@@ -98,6 +99,8 @@ echo "Deploying Cloud Run service: ${SERVICE_NAME}"
 echo "Region: ${GCP_REGION}"
 echo "Image URI: ${IMAGE_URI}"
 echo "Retrieval backend: ${RETRIEVAL_BACKEND}"
+echo "Default top_k: ${DEFAULT_TOP_K:-5}"
+echo "Max top_k: ${MAX_TOP_K:-20}"
 
 gcloud run deploy "${SERVICE_NAME}" \
   --image "${IMAGE_URI}" \

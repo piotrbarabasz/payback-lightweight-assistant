@@ -6,9 +6,9 @@ set -euo pipefail
 # This script creates or reuses a runtime service account and grants the minimum
 # project-level roles needed to call Vertex AI and run BigQuery jobs. BigQuery
 # table read access should be granted at the narrowest practical scope. If
-# BIGQUERY_DATASET is provided and the `bq` CLI is available, this script grants
-# dataset-level roles/bigquery.dataViewer. Otherwise it falls back to a
-# project-level grant and prints a warning.
+# BIGQUERY_DATASET is provided and the `bq` CLI is available, this script tries
+# a BigQuery SQL GRANT on that dataset. Set ALLOW_PROJECT_BIGQUERY_DATA_VIEWER=true
+# only when you accept a project-level roles/bigquery.dataViewer fallback.
 
 REQUIRED_ENV_VARS=(
   GCP_PROJECT_ID
@@ -58,20 +58,43 @@ gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
   --condition=None \
   --quiet
 
-if [[ -n "${BIGQUERY_DATASET:-}" ]] && command -v bq >/dev/null 2>&1; then
-  echo "Granting dataset-level BigQuery read role on ${GCP_PROJECT_ID}:${BIGQUERY_DATASET}"
-  bq add-iam-policy-binding \
-    --member="${SERVICE_ACCOUNT_MEMBER}" \
-    --role="roles/bigquery.dataViewer" \
-    "${GCP_PROJECT_ID}:${BIGQUERY_DATASET}"
-else
-  echo "BIGQUERY_DATASET or bq CLI is unavailable; granting project-level BigQuery read role." >&2
-  echo "For least privilege, prefer dataset-level roles/bigquery.dataViewer when possible." >&2
+grant_project_bigquery_data_viewer() {
+  echo "Granting project-level BigQuery read role"
   gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
     --member="${SERVICE_ACCOUNT_MEMBER}" \
     --role="roles/bigquery.dataViewer" \
     --condition=None \
     --quiet
+}
+
+if [[ -n "${BIGQUERY_DATASET:-}" ]] && command -v bq >/dev/null 2>&1; then
+  echo "Granting dataset-level BigQuery read role on ${GCP_PROJECT_ID}:${BIGQUERY_DATASET}"
+  BQ_QUERY_ARGS=(
+    "--project_id=${GCP_PROJECT_ID}"
+    "--use_legacy_sql=false"
+    "--quiet"
+  )
+  if [[ -n "${BIGQUERY_LOCATION:-}" ]]; then
+    BQ_QUERY_ARGS+=("--location=${BIGQUERY_LOCATION}")
+  fi
+  GRANT_SQL="GRANT \`roles/bigquery.dataViewer\` ON SCHEMA \`${GCP_PROJECT_ID}.${BIGQUERY_DATASET}\` TO \"${SERVICE_ACCOUNT_MEMBER}\";"
+  if bq query "${BQ_QUERY_ARGS[@]}" "${GRANT_SQL}"; then
+    echo "Granted dataset-level BigQuery read role"
+  else
+    echo "Dataset-level BigQuery SQL GRANT failed; continuing without failing the script." >&2
+    echo "If project-level read access is acceptable, rerun with ALLOW_PROJECT_BIGQUERY_DATA_VIEWER=true." >&2
+    if [[ "${ALLOW_PROJECT_BIGQUERY_DATA_VIEWER:-false}" == "true" ]]; then
+      grant_project_bigquery_data_viewer
+    fi
+  fi
+else
+  echo "BIGQUERY_DATASET or bq CLI is unavailable; dataset-level read grant was not attempted." >&2
+  echo "For least privilege, prefer dataset-level roles/bigquery.dataViewer when possible." >&2
+  if [[ "${ALLOW_PROJECT_BIGQUERY_DATA_VIEWER:-false}" == "true" ]]; then
+    grant_project_bigquery_data_viewer
+  else
+    echo "Set ALLOW_PROJECT_BIGQUERY_DATA_VIEWER=true to grant project-level roles/bigquery.dataViewer." >&2
+  fi
 fi
 
 echo "Cloud Run service account setup complete"

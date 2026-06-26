@@ -49,6 +49,7 @@ Create or reuse a runtime service account:
 
 ```bash
 export GCP_PROJECT_ID="your-project-id"
+export BIGQUERY_LOCATION="europe-west1"
 export BIGQUERY_DATASET="payback_catalog"
 export CLOUD_RUN_SERVICE_ACCOUNT_NAME="payback-assistant-runtime"
 
@@ -59,8 +60,26 @@ The script grants:
 
 - `roles/bigquery.jobUser` on the project so Cloud Run can run query jobs.
 - `roles/aiplatform.user` on the project so Cloud Run can call Vertex AI.
-- `roles/bigquery.dataViewer` on the configured dataset when `bq` is available,
-  otherwise at project scope with a warning.
+- `roles/bigquery.dataViewer` on the configured dataset by attempting a
+  BigQuery SQL `GRANT`.
+
+The script no longer uses `bq add-iam-policy-binding` for dataset IAM because
+that command can fail in some Cloud Shell environments with an allowlisting
+error. If dataset-level `GRANT` is not available, the script prints a warning
+and continues after creating the service account and project-level job/model
+roles.
+
+If project-level BigQuery table read access is acceptable for your project,
+opt into the fallback explicitly:
+
+```bash
+export ALLOW_PROJECT_BIGQUERY_DATA_VIEWER="true"
+bash infra/gcp/setup_cloud_run_service_account.sh
+```
+
+Prefer dataset-level BigQuery read access in production. Use project-level
+`roles/bigquery.dataViewer` only when dataset-level IAM is blocked and the
+broader read scope has been reviewed.
 
 After it runs, export the printed service account:
 
@@ -68,8 +87,7 @@ After it runs, export the printed service account:
 export CLOUD_RUN_SERVICE_ACCOUNT="payback-assistant-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
 ```
 
-Prefer dataset-level BigQuery read access in production. Avoid broad owner or
-editor roles for the Cloud Run runtime identity.
+Avoid broad owner or editor roles for the Cloud Run runtime identity.
 
 ## Build Image
 
@@ -96,6 +114,8 @@ BigQuery, Vertex AI, or the Stage 8 runtime service account.
 export GCP_PROJECT_ID="your-project-id"
 export GCP_REGION="europe-west1"
 export SERVICE_NAME="payback-lightweight-assistant"
+export DEFAULT_TOP_K="5"
+export MAX_TOP_K="20"
 export RETRIEVAL_BACKEND="keyword"
 
 bash infra/gcp/deploy_cloud_run.sh
@@ -117,20 +137,28 @@ Run this only after:
 export GCP_PROJECT_ID="your-project-id"
 export GCP_REGION="europe-west1"
 export SERVICE_NAME="payback-lightweight-assistant"
+export IMAGE_URI="europe-west1-docker.pkg.dev/${GCP_PROJECT_ID}/payback-assistant/payback-lightweight-assistant:latest"
 export CLOUD_RUN_SERVICE_ACCOUNT="payback-assistant-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
 
 export RETRIEVAL_BACKEND="bigquery_vector"
+export DEFAULT_TOP_K="5"
+export MAX_TOP_K="20"
+
+export GCP_LOCATION="europe-west1"
 export BIGQUERY_DATASET="payback_catalog"
 export BIGQUERY_PRODUCTS_TABLE="products"
 export BIGQUERY_LOCATION="europe-west1"
 export BIGQUERY_VECTOR_TOP_K="25"
 
-export GCP_LOCATION="europe-west1"
 export VERTEX_AI_LOCATION="europe-west1"
 export VERTEX_EMBEDDING_MODEL="text-embedding-005"
 
 bash infra/gcp/deploy_cloud_run.sh
 ```
+
+For `RETRIEVAL_BACKEND=bigquery_vector`, `deploy_cloud_run.sh` requires the
+runtime service account and the BigQuery/Vertex environment variables above.
+The keyword backend remains the default when `RETRIEVAL_BACKEND` is unset.
 
 Optional, only for models that support output dimensionality:
 
@@ -146,7 +174,7 @@ Update an already deployed Cloud Run service without rebuilding the image:
 gcloud run services update "$SERVICE_NAME" \
   --region="$GCP_REGION" \
   --service-account="$CLOUD_RUN_SERVICE_ACCOUNT" \
-  --update-env-vars="RETRIEVAL_BACKEND=bigquery_vector,GCP_PROJECT_ID=$GCP_PROJECT_ID,GCP_LOCATION=$GCP_LOCATION,BIGQUERY_DATASET=$BIGQUERY_DATASET,BIGQUERY_PRODUCTS_TABLE=$BIGQUERY_PRODUCTS_TABLE,BIGQUERY_LOCATION=$BIGQUERY_LOCATION,BIGQUERY_VECTOR_TOP_K=$BIGQUERY_VECTOR_TOP_K,VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION,VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL" \
+  --update-env-vars="ENVIRONMENT=gcp-cloud-run,RETRIEVAL_BACKEND=bigquery_vector,GCP_PROJECT_ID=$GCP_PROJECT_ID,GCP_REGION=$GCP_REGION,GCP_LOCATION=$GCP_LOCATION,DEFAULT_TOP_K=$DEFAULT_TOP_K,MAX_TOP_K=$MAX_TOP_K,BIGQUERY_DATASET=$BIGQUERY_DATASET,BIGQUERY_PRODUCTS_TABLE=$BIGQUERY_PRODUCTS_TABLE,BIGQUERY_LOCATION=$BIGQUERY_LOCATION,BIGQUERY_VECTOR_TOP_K=$BIGQUERY_VECTOR_TOP_K,VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION,VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL" \
   --project="$GCP_PROJECT_ID"
 ```
 
@@ -197,3 +225,17 @@ Frontend -> Cloud Run HTTPS API -> BigQuery / Vertex AI
 
 Do not expose BigQuery table names, service account credentials, or model access
 from frontend code.
+
+## Manual validation evidence
+
+The Stage 8D Cloud Run deployment has been manually validated with:
+
+- Cloud Run service running with `RETRIEVAL_BACKEND=bigquery_vector`.
+- Vertex AI query embeddings enabled through the backend service account.
+- BigQuery Vector Search reading a product table with 150 products and 150
+  embeddings.
+- `/health` returning HTTP 200 with `environment=gcp-cloud-run`.
+- German dm diaper, EDEKA pasta dinner, and Amazon headphones queries returning
+  product results from BigQuery Vector Search.
+- PAYBACK support queries routing to support.
+- Vague queries returning a clarifying question.
