@@ -137,11 +137,11 @@ The project makes the decision architecture explicit with small deterministic ag
 
 | Agent | Module | Responsibility |
 | ----- | ------ | -------------- |
-| `IntentDetectionAgent` | `app/agents/intent_detection.py` | Delegates to the configured intent backend. The default backend is `rules`. |
+| `IntentDetectionAgent` | `app/agents/intent_detection.py` | Delegates to the configured intent backend. The default backend is `rules`; `vertex_llm` is optional. |
 | `DecisionAgent` | `app/agents/decision.py` | Wraps the existing next-best-action and clarifying-question policy. |
 | `AssistantAgent` | `app/agents/assistant.py` | Coordinates intent results, retrieval, no-retrieval actions, comparison summaries, and response assembly. |
 
-These agents are deterministic facades over the existing service modules. They do not introduce LangChain, CrewAI, AutoGen, autonomous tool execution, conversation memory, or recursive LLM planning. A future Vertex AI or Gemini intent backend could be added behind `IntentDetectionAgent` without changing the public API schema.
+These agents are deterministic facades over the existing service modules by default. They do not introduce LangChain, CrewAI, AutoGen, autonomous tool execution, conversation memory, or recursive LLM planning. The optional Vertex/Gemini backend sits behind `IntentDetectionAgent` and is limited to structured intent parsing; invalid model output or Vertex failures fall back to deterministic rules without changing the public API schema.
 
 ### 3. Intent Detection Module
 
@@ -155,6 +155,13 @@ The intent detection module analyzes the raw user query and detects:
 * price preference,
 * occasion,
 * brand or other basic entities.
+
+Available intent backends:
+
+| Backend | Default | Behavior |
+| ------- | ------- | -------- |
+| `rules` | yes | Local deterministic language, entity, intent, specificity, and next-best-action rules. |
+| `vertex_llm` | no | Optional Vertex/Gemini JSON classifier. It validates output against existing schemas and falls back to `rules` on timeout, missing credentials, invalid JSON, missing fields, or inconsistent actions. |
 
 Supported intent types include:
 

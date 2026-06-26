@@ -2,9 +2,9 @@
 
 ## 1. Purpose
 
-Stage 7B keeps deterministic rule-based intent detection as the default behavior and wraps it in a small pluggable backend interface. The current implementation also exposes this behavior through a lightweight deterministic `IntentDetectionAgent`, with `DecisionAgent` and `AssistantAgent` making the routing and orchestration boundaries explicit.
+Stage 7B keeps deterministic rule-based intent detection as the default behavior and wraps it in a small pluggable backend interface. Stage 9A exposes this behavior through a lightweight deterministic `IntentDetectionAgent`, with `DecisionAgent` and `AssistantAgent` making the routing and orchestration boundaries explicit. Stage 9B adds an optional Vertex/Gemini backend for strict JSON intent parsing.
 
-This is not an autonomous LLM loop by default. The default `rules` backend is deterministic, single-pass, and local. A future Vertex AI or Gemini intent backend could be added behind the same agent interface, but the checked-in external backend remains a placeholder only.
+This is not an autonomous LLM loop by default. The default `rules` backend is deterministic, single-pass, and local. `vertex_llm` is optional and uses Vertex AI / Gemini only to classify a raw query into the existing structured intent format.
 
 The module returns an internal `IntentDetectionResult` with language, entities, partner hints, intent, specificity, next best action, confidence, and optional clarification text. The API response remains `AssistantQueryResponse`.
 
@@ -44,17 +44,43 @@ The backend is selected with `INTENT_BACKEND`.
 | Backend | Default | Behavior |
 | --- | --- | --- |
 | `rules` | yes | Uses local deterministic language, entity, intent, specificity, and next-best-action rules. |
-| `vertex_placeholder` | no | Future backend skeleton only. It makes no external API calls and raises `NotImplementedError` if selected. |
+| `vertex_llm` | no | Calls Vertex AI / Gemini through `google-genai`, requires strict JSON output, validates it with Pydantic/domain rules, and falls back to `rules` on any failure. |
 
-The current service does not call Vertex AI, Gemini, external LLM APIs, LangChain, or Google Cloud client libraries for intent detection.
+`vertex_llm` does not call retrieval tools, does not generate final assistant answers, and does not perform multi-step planning. It only produces fields for `IntentDetectionResult`.
 
-## 5. Supported Languages
+## 5. Vertex LLM JSON Contract
+
+The optional LLM backend accepts only a single JSON object with this contract:
+
+```json
+{
+  "language": "de | en | unknown",
+  "intent": "search | discovery | comparison | customer_support | unknown",
+  "specificity": "specific | vague | navigational",
+  "next_best_action": "search_catalog | ask_clarifying_question | partner_specific_search | compare_products | route_to_support",
+  "partner_hint": "dm | edeka | amazon | unknown",
+  "entities": {
+    "product_category": null,
+    "price_preference": null,
+    "occasion": null,
+    "dietary_preference": null,
+    "brand": null
+  },
+  "clarifying_question": null
+}
+```
+
+Extra fields, missing fields, invalid enum values, invalid JSON, unsupported fallback actions, or inconsistent `next_best_action` values are rejected.
+
+If a vague classification omits `clarifying_question`, the backend generates the existing deterministic clarifying question. If validation or the Vertex call fails, the backend logs a warning and returns the deterministic rules result.
+
+## 6. Supported Languages
 
 - `de`: German
 - `en`: English
 - `unknown`: fallback when language signals are unclear
 
-## 6. Supported Intents
+## 7. Supported Intents
 
 - `search`
 - `discovery`
@@ -62,14 +88,14 @@ The current service does not call Vertex AI, Gemini, external LLM APIs, LangChai
 - `customer_support`
 - `unknown`
 
-## 7. Specificity Types
+## 8. Specificity Types
 
 - `specific`
 - `vague`
 - `navigational`
 - `unknown`
 
-## 8. Next Best Actions
+## 9. Next Best Actions
 
 - `search_catalog`
 - `ask_clarifying_question`
@@ -78,7 +104,7 @@ The current service does not call Vertex AI, Gemini, external LLM APIs, LangChai
 - `route_to_support`
 - `fallback`
 
-## 9. Comparison Response Behavior
+## 10. Comparison Response Behavior
 
 Comparison intent uses `next_best_action: compare_products`. Retrieval remains
 deterministic and local, but the assistant response is comparison-oriented:
@@ -92,9 +118,9 @@ deterministic and local, but the assistant response is comparison-oriented:
   partners with no returned matches,
 - `comparison_criteria` lists the fields used for comparison.
 
-No LLM calls are used for this behavior.
+No LLM calls are used for retrieval scoring or comparison response generation.
 
-## 10. Example Outputs
+## 11. Example Outputs
 
 German diaper search:
 
@@ -180,21 +206,20 @@ Vague query:
 }
 ```
 
-## 11. Limitations
+## 12. Limitations
 
 - Default backend is rule-based.
-- Vertex/LLM backend is a placeholder only.
-- No Vertex AI, Gemini, or external LLM calls.
+- `vertex_llm` is optional and requires Vertex AI configuration.
+- Vertex/Gemini output is accepted only if it validates against the strict JSON contract.
 - No autonomous LLM loop or multi-agent framework.
 - Limited German and English language detection.
 - Limited entity extraction.
 - No personalization.
 - No context memory.
 
-## 12. Future Improvements
+## 13. Future Improvements
 
-- Optional Vertex AI or Gemini intent backend behind `IntentDetectionAgent`.
-- Optional structured output validation for an external intent backend.
+- More intent examples and evaluation cases for `vertex_llm`.
 - Confidence calibration.
 - Multilingual expansion.
 - More robust entity extraction.

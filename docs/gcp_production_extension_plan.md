@@ -12,7 +12,7 @@ The default app remains a local-first deterministic MVP. The FastAPI service can
 - optional deterministic local hybrid retrieval,
 - local reranking and response formatting.
 
-The default runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, managed embeddings, or an autonomous LLM agent loop. Managed retrieval is enabled only with explicit Stage 8 configuration.
+The default runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, managed embeddings, or an autonomous LLM agent loop. Managed retrieval is enabled only with explicit Stage 8 configuration. Optional Stage 9B Vertex/Gemini intent parsing is enabled only with `INTENT_BACKEND=vertex_llm`; it classifies intent JSON and falls back to rules on any failure.
 
 ## Remaining Production Work
 
@@ -35,7 +35,7 @@ Product JSON / partner ingestion source
 
 User query
 -> FastAPI POST /assistant/query on Cloud Run
--> Rule-based or future model-backed intent detection
+-> Rule-based or optional Vertex/Gemini JSON intent detection
 -> Vertex AI query embedding
 -> BigQuery Vector Search candidate retrieval
 -> Local business-rule reranking
@@ -105,6 +105,7 @@ In Stage 8, Cloud Run would remain the HTTP entry point and orchestration layer.
 
 Cloud Run would call:
 
+- optionally Vertex AI / Gemini for structured intent parsing,
 - Vertex AI for request-time query embeddings,
 - BigQuery for product lookup and vector search,
 - optionally Secret Manager for non-secret configuration references or future partner credentials.
@@ -139,6 +140,19 @@ Vector Search retriever when the required BigQuery and Vertex AI environment
 variables, credentials, and product embeddings are available. The default
 backend remains `keyword`.
 
+Optional Stage 9B Vertex/Gemini intent parsing uses:
+
+```bash
+export INTENT_BACKEND="vertex_llm"
+export VERTEX_AI_LOCATION="europe-west1"
+export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export INTENT_LLM_TIMEOUT_SECONDS="3"
+```
+
+`INTENT_BACKEND=rules` remains the default. The LLM backend is used only to
+produce the existing structured intent fields; it does not perform retrieval,
+answer generation, memory, planning, or tool execution.
+
 ## IAM And Service Account Permissions
 
 Stage 8 should use a dedicated Cloud Run service account with least-privilege access.
@@ -165,6 +179,8 @@ Avoid using broad project-owner roles for either Cloud Run or ingestion jobs.
 Stage 8 should preserve deterministic local retrieval as a fallback path:
 
 - `RETRIEVAL_BACKEND=keyword` should continue to run without GCP services.
+- `INTENT_BACKEND=rules` should continue to run without GCP services.
+- `INTENT_BACKEND=vertex_llm` should fall back to rules on missing credentials, timeout, invalid JSON, missing fields, unsupported response shape, or inconsistent action policy.
 - A BigQuery/Vertex backend should fail clearly during startup or request handling if required configuration is missing.
 - If `ENABLE_LOCAL_RETRIEVAL_FALLBACK=true`, managed retrieval failures can fall back to local keyword retrieval over the packaged synthetic catalog.
 - Responses should make no false claim that semantic/vector retrieval was used when fallback retrieval handled the request.

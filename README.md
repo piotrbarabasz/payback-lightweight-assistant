@@ -9,9 +9,9 @@ The code is intentionally scoped for reproducibility, reviewability, and low ope
 
 ## Current Stage
 
-This repository is currently at **Stage 8D: local MVP with optional GCP vector retrieval integration**.
+This repository is currently at **Stage 9B: local MVP with optional GCP vector retrieval and optional Vertex/Gemini intent parsing**.
 
-The default runtime remains local-first and deterministic. Stage 8 adds optional BigQuery, Vertex AI, BigQuery Vector Search, and Cloud Run runtime configuration paths that must be enabled explicitly. The project implements a lightweight deterministic Intent Detection Agent and assistant orchestration agent, but it is still not an autonomous LLM agent system.
+The default runtime remains local-first and deterministic. Stage 8 adds optional BigQuery, Vertex AI, BigQuery Vector Search, and Cloud Run runtime configuration paths that must be enabled explicitly. Stage 9 adds an explicit lightweight agent layer and an optional Vertex/Gemini structured intent parser. The project is still not an autonomous LLM agent system.
 
 Stage history:
 
@@ -27,6 +27,8 @@ Stage history:
 - Stage 8B added a Vertex AI embedding provider and product embedding generation script.
 - Stage 8C added an optional BigQuery Vector Search retriever and optional vector index setup.
 - Stage 8D added Cloud Run service account and environment configuration for the managed backend.
+- Stage 9A added lightweight deterministic intent, decision, and assistant orchestration agents.
+- Stage 9B added an optional Vertex/Gemini JSON intent backend with deterministic rules fallback.
 
 ## Implementation Status
 
@@ -38,6 +40,7 @@ Stage history:
 - Pluggable intent detector backend with rule-based detection as the default.
 - Rule-based language and intent detection.
 - Local keyword retrieval.
+- Optional Vertex/Gemini structured intent backend with rules fallback.
 - Optional Vertex AI text embedding provider.
 - Optional BigQuery catalog foundation scripts.
 - Optional BigQuery product embedding generation script.
@@ -54,6 +57,7 @@ Stage history:
 - Synthetic in-repository catalog instead of real partner APIs.
 - Local in-memory retrieval instead of a managed database or vector index.
 - Optional `hybrid` retrieval backend using deterministic local hash embeddings.
+- Optional `vertex_llm` intent backend using Vertex AI / Gemini only for structured intent parsing.
 - Optional `bigquery_vector` backend using Vertex AI query embeddings and BigQuery Vector Search.
 - Cloud Run scripts that deploy the current containerized app with either the default keyword backend or the optional managed backend.
 
@@ -62,7 +66,6 @@ Stage history:
 - Vertex AI and BigQuery Vector Search are optional and not enabled by default.
 - Real partner API integrations.
 - Autonomous LLM agent loop.
-- Vertex AI or Gemini intent backend. The current external intent backend is only a placeholder.
 - Conversation memory.
 - Production authentication, rate limiting, and monitoring.
 
@@ -85,13 +88,15 @@ Stage 8 reviewer checklist is documented in [docs/stage_8_final_checklist.md](do
 - A lightweight deterministic agent layer is used instead of an autonomous LLM-based agent loop to keep latency low, costs predictable, and behavior reproducible.
 - A local synthetic catalog is used instead of real partner APIs to keep the challenge self-contained and easy to run.
 - Cloud Run deployment scripts are included instead of a full GCP-native data stack so the repository stays lightweight while still showing deployment competence.
-- The retrieval and intent layers are pluggable so future Vertex AI or BigQuery-backed components can be added without changing the public API contract.
-- A future Vertex AI or Gemini intent backend could be added behind `IntentDetectionAgent`, while preserving the current deterministic `rules` backend as the default.
+- The retrieval and intent layers are pluggable so optional Vertex AI or BigQuery-backed components can be enabled without changing the public API contract.
+- The optional Vertex/Gemini intent backend is used only for structured intent parsing. It does not retrieve products, generate final answers, or run autonomous planning.
+- The Vertex/Gemini intent backend falls back to the deterministic `rules` backend on invalid JSON, missing fields, unsupported output, timeout, missing credentials, or upstream errors.
 
 ## Known Limitations
 
 - No real partner API integrations are implemented.
 - Vertex AI and BigQuery Vector Search require explicit Stage 8 configuration and are not used by default API retrieval.
+- Vertex/Gemini intent detection requires explicit `INTENT_BACKEND=vertex_llm` and Vertex AI configuration; the default remains `rules`.
 - No conversation memory, production authentication, rate limiting, or monitoring is implemented.
 - The catalog is synthetic and intentionally small.
 - The current assistant is deterministic rather than generative.
@@ -101,6 +106,7 @@ Stage 8 reviewer checklist is documented in [docs/stage_8_final_checklist.md](do
 ```text
 User query
 -> Intent Detection Agent
+-> Optional rules or vertex_llm intent backend
 -> Decision Agent
 -> Assistant Agent
 -> Retrieval Engine
@@ -242,6 +248,7 @@ What was added:
 - Clarifying question generation.
 - Integration with `POST /assistant/query`.
 - Lightweight deterministic agent abstractions without LangChain, CrewAI, AutoGen, or an autonomous LLM loop.
+- Optional `vertex_llm` backend for strict JSON intent parsing with rules fallback.
 
 Intent detection details are documented in [docs/intent_detection.md](docs/intent_detection.md).
 
@@ -321,7 +328,7 @@ Runtime configuration is environment-based:
 | `PORT` | `8080` in Docker | Bind port used by container runtimes. |
 | `LOG_LEVEL` | `info` | Uvicorn log level. |
 | `CATALOG_PATH` | `app/data/products.json` | Local catalog JSON path. |
-| `INTENT_BACKEND` | `rules` | Intent detector selector. Supported values: `rules`, `vertex_placeholder`. The placeholder makes no external calls and raises `NotImplementedError` if used. |
+| `INTENT_BACKEND` | `rules` | Intent detector selector. Supported values: `rules`, `vertex_llm`. `vertex_llm` is optional and falls back to rules on any Vertex/Gemini failure or invalid output. |
 | `RETRIEVAL_BACKEND` | `keyword` | Retrieval backend selector. Supported values: `keyword`, `hybrid`, `bigquery_vector`. The `bigquery_vector` backend is optional and requires Stage 8C GCP configuration. |
 | `DEFAULT_TOP_K` | `5` | Default assistant result count. |
 | `MAX_TOP_K` | `20` | Maximum assistant result count. |
@@ -335,6 +342,21 @@ Runtime configuration is environment-based:
 | `VERTEX_AI_LOCATION` | empty | Optional Vertex AI location override for embeddings. Takes precedence over `GCP_LOCATION`. |
 | `VERTEX_EMBEDDING_MODEL` | empty | Vertex text embedding model id. Required when constructing the Vertex embedding provider. |
 | `VERTEX_EMBEDDING_DIMENSIONS` | empty | Optional output dimensionality for models that support it. |
+| `VERTEX_INTENT_MODEL` | `gemini-3.5-flash` | Optional Vertex/Gemini model id for `INTENT_BACKEND=vertex_llm`. |
+| `INTENT_LLM_TIMEOUT_SECONDS` | `3.0` | Request timeout for optional Vertex/Gemini intent classification before falling back to rules. |
+
+Enable optional Vertex/Gemini intent parsing locally:
+
+```bash
+export INTENT_BACKEND="vertex_llm"
+export GCP_PROJECT_ID="your-project-id"
+export VERTEX_AI_LOCATION="europe-west1"
+export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export INTENT_LLM_TIMEOUT_SECONDS="3"
+uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
+```
+
+Unset `INTENT_BACKEND` or set it back to `rules` for the default deterministic backend.
 
 ## Local Setup
 

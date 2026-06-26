@@ -39,6 +39,7 @@ if [[ -z "${IMAGE_URI}" ]]; then
   exit 1
 fi
 
+INTENT_BACKEND="${INTENT_BACKEND:-rules}"
 RETRIEVAL_BACKEND="${RETRIEVAL_BACKEND:-keyword}"
 ENV_VARS=(
   "ENVIRONMENT=gcp-cloud-run"
@@ -48,6 +49,7 @@ ENV_VARS=(
   "GCP_REGION=${GCP_REGION}"
   "DEFAULT_TOP_K=${DEFAULT_TOP_K:-5}"
   "MAX_TOP_K=${MAX_TOP_K:-20}"
+  "INTENT_BACKEND=${INTENT_BACKEND}"
   "RETRIEVAL_BACKEND=${RETRIEVAL_BACKEND}"
 )
 
@@ -85,6 +87,33 @@ else
   echo "Deploying with local/default retrieval backend: ${RETRIEVAL_BACKEND}"
 fi
 
+if [[ "${INTENT_BACKEND}" == "vertex_llm" ]]; then
+  REQUIRED_VERTEX_INTENT_ENV_VARS=(
+    CLOUD_RUN_SERVICE_ACCOUNT
+    VERTEX_AI_LOCATION
+  )
+  for var_name in "${REQUIRED_VERTEX_INTENT_ENV_VARS[@]}"; do
+    if [[ -z "${!var_name:-}" ]]; then
+      echo "Missing required environment variable for INTENT_BACKEND=vertex_llm: ${var_name}" >&2
+      exit 1
+    fi
+  done
+
+  if [[ "${RETRIEVAL_BACKEND}" != "bigquery_vector" ]]; then
+    ENV_VARS+=("VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}")
+  fi
+
+  ENV_VARS+=(
+    "VERTEX_INTENT_MODEL=${VERTEX_INTENT_MODEL:-gemini-3.5-flash}"
+    "INTENT_LLM_TIMEOUT_SECONDS=${INTENT_LLM_TIMEOUT_SECONDS:-3}"
+  )
+elif [[ "${INTENT_BACKEND}" != "rules" ]]; then
+  echo "Unsupported INTENT_BACKEND: ${INTENT_BACKEND}. Supported values: rules, vertex_llm" >&2
+  exit 1
+else
+  echo "Deploying with deterministic intent backend: ${INTENT_BACKEND}"
+fi
+
 if [[ -n "${CLOUD_RUN_SERVICE_ACCOUNT:-}" ]]; then
   SERVICE_ACCOUNT_ARGS=(--service-account "${CLOUD_RUN_SERVICE_ACCOUNT}")
   echo "Using Cloud Run service account: ${CLOUD_RUN_SERVICE_ACCOUNT}"
@@ -98,6 +127,7 @@ ENV_VARS_CSV="$(IFS=,; echo "${ENV_VARS[*]}")"
 echo "Deploying Cloud Run service: ${SERVICE_NAME}"
 echo "Region: ${GCP_REGION}"
 echo "Image URI: ${IMAGE_URI}"
+echo "Intent backend: ${INTENT_BACKEND}"
 echo "Retrieval backend: ${RETRIEVAL_BACKEND}"
 echo "Default top_k: ${DEFAULT_TOP_K:-5}"
 echo "Max top_k: ${MAX_TOP_K:-20}"

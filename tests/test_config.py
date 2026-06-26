@@ -29,6 +29,8 @@ CONFIG_ENV_VARS = (
     "VERTEX_AI_LOCATION",
     "VERTEX_EMBEDDING_MODEL",
     "VERTEX_EMBEDDING_DIMENSIONS",
+    "VERTEX_INTENT_MODEL",
+    "INTENT_LLM_TIMEOUT_SECONDS",
 )
 
 
@@ -64,6 +66,8 @@ def test_default_settings_load_correctly(monkeypatch) -> None:
     assert settings.VERTEX_AI_LOCATION == ""
     assert settings.VERTEX_EMBEDDING_MODEL == ""
     assert settings.VERTEX_EMBEDDING_DIMENSIONS == 0
+    assert settings.VERTEX_INTENT_MODEL == "gemini-3.5-flash"
+    assert settings.INTENT_LLM_TIMEOUT_SECONDS == 3.0
 
 
 def test_app_name_has_non_empty_value(monkeypatch) -> None:
@@ -104,19 +108,19 @@ def test_intent_backend_defaults_to_rules(monkeypatch) -> None:
     assert get_settings().INTENT_BACKEND == "rules"
 
 
-def test_supported_intent_backends_are_documented_placeholders() -> None:
+def test_supported_intent_backends_include_rules_and_optional_vertex_llm() -> None:
     assert SUPPORTED_INTENT_BACKENDS == {
         "rules",
-        "vertex_placeholder",
+        "vertex_llm",
     }
 
 
-def test_intent_backend_accepts_vertex_placeholder(monkeypatch) -> None:
+def test_intent_backend_accepts_vertex_llm(monkeypatch) -> None:
     clear_config_env(monkeypatch)
-    monkeypatch.setenv("INTENT_BACKEND", "vertex_placeholder")
+    monkeypatch.setenv("INTENT_BACKEND", "vertex_llm")
     get_settings.cache_clear()
 
-    assert get_settings().INTENT_BACKEND == "vertex_placeholder"
+    assert get_settings().INTENT_BACKEND == "vertex_llm"
 
 
 def test_intent_backend_rejects_unknown_value(monkeypatch) -> None:
@@ -126,7 +130,7 @@ def test_intent_backend_rejects_unknown_value(monkeypatch) -> None:
 
     with pytest.raises(
         ValueError,
-        match="INTENT_BACKEND must be one of: rules, vertex_placeholder",
+        match="INTENT_BACKEND must be one of: rules, vertex_llm",
     ):
         get_settings()
 
@@ -191,6 +195,8 @@ def test_gcp_catalog_environment_variables_override_defaults(monkeypatch) -> Non
     monkeypatch.setenv("VERTEX_AI_LOCATION", "us-central1")
     monkeypatch.setenv("VERTEX_EMBEDDING_MODEL", "text-embedding-005")
     monkeypatch.setenv("VERTEX_EMBEDDING_DIMENSIONS", "256")
+    monkeypatch.setenv("VERTEX_INTENT_MODEL", "gemini-test")
+    monkeypatch.setenv("INTENT_LLM_TIMEOUT_SECONDS", "4.5")
     get_settings.cache_clear()
 
     settings = get_settings()
@@ -205,6 +211,8 @@ def test_gcp_catalog_environment_variables_override_defaults(monkeypatch) -> Non
     assert settings.VERTEX_AI_LOCATION == "us-central1"
     assert settings.VERTEX_EMBEDDING_MODEL == "text-embedding-005"
     assert settings.VERTEX_EMBEDDING_DIMENSIONS == 256
+    assert settings.VERTEX_INTENT_MODEL == "gemini-test"
+    assert settings.INTENT_LLM_TIMEOUT_SECONDS == 4.5
 
 
 def test_blank_gcp_catalog_environment_variables_use_safe_defaults(monkeypatch) -> None:
@@ -219,6 +227,8 @@ def test_blank_gcp_catalog_environment_variables_use_safe_defaults(monkeypatch) 
     monkeypatch.setenv("VERTEX_AI_LOCATION", "   ")
     monkeypatch.setenv("VERTEX_EMBEDDING_MODEL", "   ")
     monkeypatch.setenv("VERTEX_EMBEDDING_DIMENSIONS", "   ")
+    monkeypatch.setenv("VERTEX_INTENT_MODEL", "   ")
+    monkeypatch.setenv("INTENT_LLM_TIMEOUT_SECONDS", "   ")
     get_settings.cache_clear()
 
     settings = get_settings()
@@ -233,6 +243,8 @@ def test_blank_gcp_catalog_environment_variables_use_safe_defaults(monkeypatch) 
     assert settings.VERTEX_AI_LOCATION == ""
     assert settings.VERTEX_EMBEDDING_MODEL == ""
     assert settings.VERTEX_EMBEDDING_DIMENSIONS == 0
+    assert settings.VERTEX_INTENT_MODEL == "gemini-3.5-flash"
+    assert settings.INTENT_LLM_TIMEOUT_SECONDS == 3.0
 
 
 def test_invalid_vector_top_k_is_rejected(monkeypatch) -> None:
@@ -241,4 +253,28 @@ def test_invalid_vector_top_k_is_rejected(monkeypatch) -> None:
     get_settings.cache_clear()
 
     with pytest.raises(ValueError, match="BIGQUERY_VECTOR_TOP_K must be an integer"):
+        get_settings()
+
+
+def test_invalid_intent_llm_timeout_is_rejected(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("INTENT_LLM_TIMEOUT_SECONDS", "soon")
+    get_settings.cache_clear()
+
+    with pytest.raises(
+        ValueError,
+        match="INTENT_LLM_TIMEOUT_SECONDS must be a number",
+    ):
+        get_settings()
+
+
+def test_non_positive_intent_llm_timeout_is_rejected(monkeypatch) -> None:
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("INTENT_LLM_TIMEOUT_SECONDS", "0")
+    get_settings.cache_clear()
+
+    with pytest.raises(
+        ValueError,
+        match="INTENT_LLM_TIMEOUT_SECONDS must be greater than 0",
+    ):
         get_settings()

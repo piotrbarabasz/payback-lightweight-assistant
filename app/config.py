@@ -24,6 +24,23 @@ def _env_int(name: str, default: int) -> int:
         raise ValueError(f"{name} must be an integer") from exc
 
 
+def _env_float(name: str, default: float) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number") from exc
+
+
+def _env_positive_float(name: str, default: float) -> float:
+    value = _env_float(name, default)
+    if value <= 0:
+        raise ValueError(f"{name} must be greater than 0")
+    return value
+
+
 def _env_choice(name: str, default: str, allowed_values: set[str]) -> str:
     value = _env_str(name, default).lower()
     if value not in allowed_values:
@@ -32,7 +49,7 @@ def _env_choice(name: str, default: str, allowed_values: set[str]) -> str:
     return value
 
 
-SUPPORTED_INTENT_BACKENDS = {"rules", "vertex_placeholder"}
+SUPPORTED_INTENT_BACKENDS = {"rules", "vertex_llm"}
 SUPPORTED_RETRIEVAL_BACKENDS = {"bigquery_vector", "hybrid", "keyword"}
 
 
@@ -59,6 +76,8 @@ class Settings:
     VERTEX_AI_LOCATION: str = ""
     VERTEX_EMBEDDING_MODEL: str = ""
     VERTEX_EMBEDDING_DIMENSIONS: int = 0
+    VERTEX_INTENT_MODEL: str = "gemini-3.5-flash"
+    INTENT_LLM_TIMEOUT_SECONDS: float = 3.0
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -103,6 +122,14 @@ class Settings:
             VERTEX_EMBEDDING_DIMENSIONS=_env_int(
                 "VERTEX_EMBEDDING_DIMENSIONS",
                 cls.VERTEX_EMBEDDING_DIMENSIONS,
+            ),
+            VERTEX_INTENT_MODEL=_env_str(
+                "VERTEX_INTENT_MODEL",
+                cls.VERTEX_INTENT_MODEL,
+            ),
+            INTENT_LLM_TIMEOUT_SECONDS=_env_positive_float(
+                "INTENT_LLM_TIMEOUT_SECONDS",
+                cls.INTENT_LLM_TIMEOUT_SECONDS,
             ),
         )
 

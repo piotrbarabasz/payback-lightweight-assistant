@@ -8,6 +8,7 @@ call BigQuery or Vertex AI directly.
 The default deployment remains the local keyword backend:
 
 ```text
+INTENT_BACKEND=rules
 RETRIEVAL_BACKEND=keyword
 ```
 
@@ -116,13 +117,14 @@ export GCP_REGION="europe-west1"
 export SERVICE_NAME="payback-lightweight-assistant"
 export DEFAULT_TOP_K="5"
 export MAX_TOP_K="20"
+export INTENT_BACKEND="rules"
 export RETRIEVAL_BACKEND="keyword"
 
 bash infra/gcp/deploy_cloud_run.sh
 bash infra/gcp/smoke_test_deployed_api.sh
 ```
 
-Unset `RETRIEVAL_BACKEND` for the same default behavior.
+Unset `INTENT_BACKEND` and `RETRIEVAL_BACKEND` for the same default behavior.
 
 ## Deploy With BigQuery Vector Backend
 
@@ -166,6 +168,36 @@ Optional, only for models that support output dimensionality:
 export VERTEX_EMBEDDING_DIMENSIONS="256"
 ```
 
+## Deploy With Optional Vertex LLM Intent Backend
+
+This changes only intent parsing. It does not change retrieval scoring, BigQuery
+Vector Search behavior, response schema, or assistant orchestration. The backend
+uses Vertex AI / Gemini to return strict JSON intent fields and falls back to
+the deterministic `rules` backend on timeout, missing credentials, invalid JSON,
+missing fields, unsupported output, or inconsistent actions.
+
+```bash
+export GCP_PROJECT_ID="your-project-id"
+export GCP_REGION="europe-west1"
+export SERVICE_NAME="payback-lightweight-assistant"
+export IMAGE_URI="europe-west1-docker.pkg.dev/${GCP_PROJECT_ID}/payback-assistant/payback-lightweight-assistant:latest"
+export CLOUD_RUN_SERVICE_ACCOUNT="payback-assistant-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+
+export INTENT_BACKEND="vertex_llm"
+export VERTEX_AI_LOCATION="europe-west1"
+export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export INTENT_LLM_TIMEOUT_SECONDS="3"
+
+# Retrieval remains independent; keyword is still the default.
+export RETRIEVAL_BACKEND="keyword"
+
+bash infra/gcp/deploy_cloud_run.sh
+```
+
+Enable both optional managed retrieval and optional LLM intent parsing by
+combining `INTENT_BACKEND=vertex_llm` with the `RETRIEVAL_BACKEND=bigquery_vector`
+environment variables from the previous section.
+
 ## Update Env Vars On Existing Service
 
 Update an already deployed Cloud Run service without rebuilding the image:
@@ -174,7 +206,17 @@ Update an already deployed Cloud Run service without rebuilding the image:
 gcloud run services update "$SERVICE_NAME" \
   --region="$GCP_REGION" \
   --service-account="$CLOUD_RUN_SERVICE_ACCOUNT" \
-  --update-env-vars="ENVIRONMENT=gcp-cloud-run,RETRIEVAL_BACKEND=bigquery_vector,GCP_PROJECT_ID=$GCP_PROJECT_ID,GCP_REGION=$GCP_REGION,GCP_LOCATION=$GCP_LOCATION,DEFAULT_TOP_K=$DEFAULT_TOP_K,MAX_TOP_K=$MAX_TOP_K,BIGQUERY_DATASET=$BIGQUERY_DATASET,BIGQUERY_PRODUCTS_TABLE=$BIGQUERY_PRODUCTS_TABLE,BIGQUERY_LOCATION=$BIGQUERY_LOCATION,BIGQUERY_VECTOR_TOP_K=$BIGQUERY_VECTOR_TOP_K,VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION,VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL" \
+  --update-env-vars="ENVIRONMENT=gcp-cloud-run,INTENT_BACKEND=rules,RETRIEVAL_BACKEND=bigquery_vector,GCP_PROJECT_ID=$GCP_PROJECT_ID,GCP_REGION=$GCP_REGION,GCP_LOCATION=$GCP_LOCATION,DEFAULT_TOP_K=$DEFAULT_TOP_K,MAX_TOP_K=$MAX_TOP_K,BIGQUERY_DATASET=$BIGQUERY_DATASET,BIGQUERY_PRODUCTS_TABLE=$BIGQUERY_PRODUCTS_TABLE,BIGQUERY_LOCATION=$BIGQUERY_LOCATION,BIGQUERY_VECTOR_TOP_K=$BIGQUERY_VECTOR_TOP_K,VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION,VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL" \
+  --project="$GCP_PROJECT_ID"
+```
+
+Enable optional Vertex/Gemini intent parsing on an existing service:
+
+```bash
+gcloud run services update "$SERVICE_NAME" \
+  --region="$GCP_REGION" \
+  --service-account="$CLOUD_RUN_SERVICE_ACCOUNT" \
+  --update-env-vars="INTENT_BACKEND=vertex_llm,GCP_PROJECT_ID=$GCP_PROJECT_ID,VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION,VERTEX_INTENT_MODEL=${VERTEX_INTENT_MODEL:-gemini-3.5-flash},INTENT_LLM_TIMEOUT_SECONDS=${INTENT_LLM_TIMEOUT_SECONDS:-3}" \
   --project="$GCP_PROJECT_ID"
 ```
 
@@ -183,7 +225,7 @@ Return to the keyword backend:
 ```bash
 gcloud run services update "$SERVICE_NAME" \
   --region="$GCP_REGION" \
-  --update-env-vars="RETRIEVAL_BACKEND=keyword" \
+  --update-env-vars="INTENT_BACKEND=rules,RETRIEVAL_BACKEND=keyword" \
   --project="$GCP_PROJECT_ID"
 ```
 
@@ -209,6 +251,7 @@ gcloud logging read \
 Useful things to look for:
 
 - missing environment variable errors,
+- Vertex/Gemini intent fallback warnings,
 - Vertex AI embedding failures,
 - BigQuery query permission errors,
 - BigQuery Vector Search no-result errors,

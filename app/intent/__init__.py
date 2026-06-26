@@ -6,6 +6,8 @@ __all__ = [
     "BaseIntentDetector",
     "FutureVertexIntentDetector",
     "RuleBasedIntentDetector",
+    "VertexLLMIntentConfig",
+    "VertexLLMIntentDetector",
     "VertexIntentDetector",
     "analyze_query_intent",
     "get_intent_detector",
@@ -25,6 +27,13 @@ def __getattr__(name: str) -> object:
         from app.intent.service import analyze_query_intent
 
         return analyze_query_intent
+    if name in {"VertexLLMIntentConfig", "VertexLLMIntentDetector"}:
+        from app.intent.vertex_llm import VertexLLMIntentConfig, VertexLLMIntentDetector
+
+        return {
+            "VertexLLMIntentConfig": VertexLLMIntentConfig,
+            "VertexLLMIntentDetector": VertexLLMIntentDetector,
+        }[name]
     if name in {"FutureVertexIntentDetector", "VertexIntentDetector"}:
         from app.intent.vertex_placeholder import (
             FutureVertexIntentDetector,

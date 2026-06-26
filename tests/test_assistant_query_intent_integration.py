@@ -84,17 +84,21 @@ def test_assistant_query_vague_asks_clarifying_question_without_results() -> Non
     assert data["results"] == []
 
 
-def test_assistant_query_uses_configured_vertex_placeholder_backend(
+def test_assistant_query_vertex_llm_falls_back_to_rules_without_config(
     monkeypatch,
 ) -> None:
-    monkeypatch.setenv("INTENT_BACKEND", "vertex_placeholder")
+    monkeypatch.setenv("INTENT_BACKEND", "vertex_llm")
+    monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
     get_settings.cache_clear()
 
-    with pytest.raises(
-        NotImplementedError,
-        match="INTENT_BACKEND=vertex_placeholder is not implemented",
-    ):
-        client.post(
-            "/assistant/query",
-            json={"query": "Show me headphones on Amazon", "top_k": 5},
-        )
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Show me headphones on Amazon", "top_k": 5},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "search"
+    assert data["specificity"] == "navigational"
+    assert data["next_best_action"] == "partner_specific_search"
+    assert data["results"]

@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Stage 6 deploys the existing Dockerized FastAPI assistant API to Google Cloud Run using Artifact Registry as the container image repository. By default this still deploys the local keyword retrieval backend. Stage 8D adds optional BigQuery and Vertex AI runtime configuration for `RETRIEVAL_BACKEND=bigquery_vector`; see [stage_8d_cloud_run_gcp_runtime.md](stage_8d_cloud_run_gcp_runtime.md).
+Stage 6 deploys the existing Dockerized FastAPI assistant API to Google Cloud Run using Artifact Registry as the container image repository. By default this still deploys the deterministic rules intent backend and local keyword retrieval backend. Stage 8D adds optional BigQuery and Vertex AI runtime configuration for `RETRIEVAL_BACKEND=bigquery_vector`; Stage 9B adds optional Vertex/Gemini structured intent parsing with `INTENT_BACKEND=vertex_llm`. See [stage_8d_cloud_run_gcp_runtime.md](stage_8d_cloud_run_gcp_runtime.md).
 
 ## 2. Architecture
 
@@ -36,8 +36,23 @@ export IMAGE_NAME="payback-lightweight-assistant"
 export IMAGE_TAG="latest"
 export SERVICE_NAME="payback-lightweight-assistant"
 # Optional, defaults to keyword if unset.
+export INTENT_BACKEND="rules"
 export RETRIEVAL_BACKEND="keyword"
 ```
+
+Optional Vertex/Gemini intent parsing:
+
+```bash
+export INTENT_BACKEND="vertex_llm"
+export VERTEX_AI_LOCATION="europe-west1"
+export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export INTENT_LLM_TIMEOUT_SECONDS="3"
+```
+
+The optional LLM backend only parses intent JSON and falls back to rules on
+Vertex/Gemini failures, invalid JSON, missing fields, timeout, or missing
+credentials. It does not change retrieval behavior or introduce autonomous
+planning.
 
 ## 5. Deployment Commands
 
@@ -88,6 +103,7 @@ The deployment script configures Cloud Run with:
 
 - The default deployment still uses the local synthetic catalog packaged in the container.
 - BigQuery and Vertex AI are optional Stage 8 runtime integrations and must be configured explicitly.
+- Vertex/Gemini intent parsing is optional and must be configured explicitly with `INTENT_BACKEND=vertex_llm`.
 - No real partner API integrations yet.
 
 ## 9. Future Improvements
