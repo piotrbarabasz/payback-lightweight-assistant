@@ -465,7 +465,7 @@ The current system still does not include:
 * user history,
 * personalization,
 * managed ingestion scheduling,
-* automatic managed-to-local fallback,
+* production monitoring for managed-to-local fallback,
 * LLM-based final answer generation,
 * autonomous LLM agent orchestration,
 * authentication,

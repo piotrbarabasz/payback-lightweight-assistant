@@ -395,6 +395,7 @@ Runtime configuration is environment-based:
 | `BIGQUERY_PRODUCTS_TABLE` | `products` | BigQuery products table for optional Stage 8 catalog and vector retrieval. |
 | `BIGQUERY_LOCATION` | `europe-west1` | BigQuery job and dataset location. |
 | `BIGQUERY_VECTOR_TOP_K` | `25` | Candidate pool size for optional BigQuery Vector Search retrieval. |
+| `BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE` | `128` | In-memory query embedding cache size for optional BigQuery Vector Search retrieval. Set `0` to disable. |
 | `BIGQUERY_VECTOR_INDEX` | `products_embedding_idx` | Optional BigQuery vector index name used by the Stage 8C index setup script. |
 | `VERTEX_AI_LOCATION` | empty | Optional Vertex AI location override for embeddings. Takes precedence over `GCP_LOCATION`. |
 | `VERTEX_EMBEDDING_MODEL` | empty | Vertex text embedding model id. Required when constructing the Vertex embedding provider. |
@@ -619,6 +620,6 @@ Stage 8 currently includes:
 - Optional BigQuery vector index setup.
 - Cloud Run runtime service-account and environment configuration for the managed backend.
 
-Remaining production work includes managed ingestion scheduling, stronger fallback behavior, observability, authentication, rate limiting, and production IAM review. The detailed GCP plan is in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
+Remaining production work includes managed ingestion scheduling, fallback monitoring, observability, authentication, rate limiting, and production IAM review. The detailed GCP plan is in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
 
 The local deterministic API contract remains the default and should remain available as a fallback while managed integrations are hardened.

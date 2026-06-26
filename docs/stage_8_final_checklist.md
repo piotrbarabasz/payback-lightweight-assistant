@@ -118,7 +118,7 @@ only; it should not call BigQuery or Vertex AI directly.
 - No real partner API integrations.
 - No autonomous LLM agent loop.
 - No production authentication or rate limiting.
-- No automatic managed-to-local fallback inside `bigquery_vector`.
+- Managed-to-local fallback depends on the packaged local catalog and should be monitored in production.
 - No published benchmark numbers.
 - GCP costs depend on the project, region, query volume, embedding model, table
   size, and vector index usage.

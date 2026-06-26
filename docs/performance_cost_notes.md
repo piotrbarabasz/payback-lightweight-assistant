@@ -23,7 +23,7 @@ The default MVP path uses the `keyword` retrieval backend and does not call exte
 
 Stage 7A also includes an optional `hybrid` backend for local experiments. It uses deterministic local hash embeddings and in-process cosine similarity only; it does not call Vertex AI, BigQuery, BigQuery Vector Search, or external model APIs.
 
-Stage 8 adds an optional `bigquery_vector` backend. That backend embeds the user query with Vertex AI and queries BigQuery Vector Search. It is not enabled by default and should be evaluated separately from the local MVP path.
+Stage 8 adds an optional `bigquery_vector` backend. That backend embeds the user query with Vertex AI and queries BigQuery Vector Search. It is not enabled by default and should be evaluated separately from the local MVP path. If the managed embedding or BigQuery query fails at request time, the service logs a warning and falls back to local keyword retrieval when the packaged catalog is available.
 
 Stage 9B adds an optional `vertex_llm` intent backend. That backend uses Vertex/Gemini only to classify the raw query into the existing structured intent fields. It is not enabled by default and falls back to deterministic rules on timeout, missing credentials, invalid JSON, missing fields, unsupported values, or inconsistent policy output.
 
@@ -32,7 +32,7 @@ The three common modes are:
 | Mode | Intent backend | Retrieval backend | Cost profile |
 | --- | --- | --- | --- |
 | Default local | `rules` | `keyword` | Lowest cost; no managed model or database calls. |
-| Managed retrieval | `rules` | `bigquery_vector` | Adds Vertex AI query embedding calls and BigQuery Vector Search jobs. |
+| Managed retrieval | `rules` | `bigquery_vector` | Adds Vertex AI query embedding calls and BigQuery Vector Search jobs, with local keyword fallback for transient managed-service failures. |
 | Optional LLM intent + managed retrieval | `vertex_llm` | `bigquery_vector` | Adds a Gemini JSON intent classification call before retrieval decisions. |
 
 ## Performance-Oriented Design Decisions
@@ -158,6 +158,8 @@ Product embeddings should be generated offline or in a controlled refresh job. R
 
 Optional `INTENT_BACKEND=vertex_llm` also uses Vertex AI / Gemini, but only for structured intent classification. It adds one managed model call before retrieval decisions and should be enabled only when the additional latency, IAM dependency, and model request cost are acceptable.
 
+The `bigquery_vector` runtime path depends on Vertex AI online prediction quota for query embeddings. If quota is exhausted, for example `429 RESOURCE_EXHAUSTED` on the embedding model, the retriever treats the managed path as unavailable for that request and falls back to local keyword retrieval. Fallback product reasons are prefixed with text such as `Fallback keyword retrieval used because managed vector retrieval was unavailable.`
+
 ### 3. BigQuery Vector Search Is Optional
 
 BigQuery Vector Search is not used in the default MVP.
@@ -238,13 +240,17 @@ When `RETRIEVAL_BACKEND=hybrid` is enabled locally, the service performs additio
 
 When `RETRIEVAL_BACKEND=bigquery_vector` is enabled, latency includes Vertex AI query embedding and BigQuery Vector Search. When `INTENT_BACKEND=vertex_llm` is also enabled, latency additionally includes Gemini JSON classification. Timeouts and fallback behavior protect reliability, but managed calls should be measured separately from the local default path.
 
+Repeated identical managed-retrieval queries can reuse a small in-memory query embedding cache. The cache stores only successful embeddings, uses normalized query text as the key, and defaults to roughly 128 entries. This reduces repeated Vertex embedding calls during demos and smoke tests, but it is not a substitute for realistic quota planning.
+
 For the current MVP, this is a reasonable trade-off between capability, cost, and simplicity.
 
 ## Load Test Results
 
 No formal production load-test result is committed with the repository. Manual validation has confirmed the Cloud Run managed path returns `200 OK` for `/health` and the five smoke-test assistant queries.
 
-Use the local/API load-test script below to record environment-specific numbers before presenting benchmark claims. Results depend on local hardware, Cloud Run cold starts, region, BigQuery table size, Vertex model latency, network path, and request mix.
+Use the local/API load-test script below to record environment-specific numbers before presenting benchmark claims. Results depend on local hardware, Cloud Run cold starts, region, BigQuery table size, Vertex model latency, online prediction quota, network path, and request mix.
+
+For the managed GCP path, use realistic pacing or intentionally repeated cached queries. A high-rate load test with many unique search queries can exhaust Vertex AI embedding quota and trigger fallback retrieval. The script reports status-code and exception breakdowns so `500` responses remain visible.
 
 ## Optional Local/API Load Test
 
@@ -276,6 +282,12 @@ Or point it at a specific endpoint:
 python scripts/load_test_api.py --base-url http://127.0.0.1:8080 --requests 100
 ```
 
+Add a delay between sequential requests when testing quota-sensitive managed services:
+
+```bash
+python scripts/load_test_api.py --base-url https://your-service-url.a.run.app --requests 50 --delay-seconds 0.5
+```
+
 For a Cloud Run deployment, pass the deployed service URL explicitly:
 
 ```bash
@@ -297,6 +309,8 @@ The script reports:
 - request count,
 - success count,
 - error count,
+- status-code breakdown,
+- exception breakdown,
 - average latency,
 - p50 latency,
 - p95 latency,

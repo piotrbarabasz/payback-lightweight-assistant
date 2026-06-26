@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -10,11 +12,17 @@ from typing import Any
 from app.config import get_settings
 from app.embeddings.vertex_ai import VertexAIEmbeddingProvider
 from app.retrieval.base import ProductRetriever
+from app.retrieval.keyword_retriever import KeywordProductRetriever
 from app.retrieval.normalizer import QueryAnalysis, normalize_query
 from app.schemas import Partner, Product, ProductResult
 
 
 DEFAULT_VECTOR_TOP_K = 25
+DEFAULT_QUERY_EMBEDDING_CACHE_SIZE = 128
+FALLBACK_REASON_PREFIX = (
+    "Fallback keyword retrieval used because managed vector retrieval was unavailable."
+)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -26,6 +34,7 @@ class BigQueryVectorConfig:
     table_id: str
     location: str = "europe-west1"
     vector_top_k: int = DEFAULT_VECTOR_TOP_K
+    query_embedding_cache_size: int = DEFAULT_QUERY_EMBEDDING_CACHE_SIZE
 
     @property
     def table_fqn(self) -> str:
@@ -49,6 +58,10 @@ class BigQueryVectorConfig:
             "BIGQUERY_VECTOR_TOP_K",
             settings.BIGQUERY_VECTOR_TOP_K,
         )
+        query_embedding_cache_size = _env_optional_int(
+            "BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE",
+            DEFAULT_QUERY_EMBEDDING_CACHE_SIZE,
+        )
 
         missing = []
         if not project_id:
@@ -65,6 +78,8 @@ class BigQueryVectorConfig:
             )
         if vector_top_k < 1:
             raise ValueError("BIGQUERY_VECTOR_TOP_K must be at least 1")
+        if query_embedding_cache_size < 0:
+            raise ValueError("BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE must be at least 0")
 
         return cls(
             project_id=project_id,
@@ -72,6 +87,7 @@ class BigQueryVectorConfig:
             table_id=table_id,
             location=location,
             vector_top_k=vector_top_k,
+            query_embedding_cache_size=query_embedding_cache_size,
         )
 
 
@@ -89,12 +105,15 @@ class BigQueryVectorProductRetriever(ProductRetriever):
         client_factory: ClientFactory | None = None,
         embedding_provider: Any | None = None,
         bigquery_module: Any | None = None,
+        fallback_retriever: ProductRetriever | None = None,
     ) -> None:
         self._config = config
         self._client = client
         self._client_factory = client_factory or _default_client_factory
         self._embedding_provider = embedding_provider
         self._bigquery = bigquery_module
+        self._fallback_retriever = fallback_retriever
+        self._query_embedding_cache: OrderedDict[str, list[float]] = OrderedDict()
 
     def retrieve(
         self,
@@ -110,6 +129,31 @@ class BigQueryVectorProductRetriever(ProductRetriever):
 
         analysis = intent_analysis or normalize_query(query)
         config = self._get_config()
+
+        try:
+            return self._retrieve_from_bigquery(
+                query=query,
+                top_k=top_k,
+                analysis=analysis,
+                config=config,
+            )
+        except RuntimeError as exc:
+            return self._retrieve_with_local_fallback(
+                query=query,
+                products=products,
+                top_k=top_k,
+                intent_analysis=analysis,
+                cause=exc,
+            )
+
+    def _retrieve_from_bigquery(
+        self,
+        *,
+        query: str,
+        top_k: int,
+        analysis: QueryAnalysis,
+        config: BigQueryVectorConfig,
+    ) -> list[ProductResult]:
         query_embedding = self._embed_query(query)
         if not query_embedding:
             raise RuntimeError("Vertex AI query embedding was empty")
@@ -147,6 +191,40 @@ class BigQueryVectorProductRetriever(ProductRetriever):
             )
         return results[:top_k]
 
+    def _retrieve_with_local_fallback(
+        self,
+        *,
+        query: str,
+        products: list[Product],
+        top_k: int,
+        intent_analysis: QueryAnalysis,
+        cause: RuntimeError,
+    ) -> list[ProductResult]:
+        logger.warning(
+            "BigQuery vector retrieval failed; falling back to local keyword "
+            "retrieval: %s",
+            cause,
+        )
+        if not products:
+            return []
+
+        try:
+            results = self._get_fallback_retriever().retrieve(
+                query,
+                products,
+                top_k=top_k,
+                intent_analysis=intent_analysis,
+            )
+        except Exception as fallback_exc:  # pragma: no cover - defensive only.
+            logger.warning(
+                "Local keyword fallback failed after managed vector retrieval "
+                "failure: %s",
+                fallback_exc,
+            )
+            return []
+
+        return [_annotate_fallback_result(result) for result in results]
+
     def _get_config(self) -> BigQueryVectorConfig:
         if self._config is None:
             self._config = BigQueryVectorConfig.from_env()
@@ -174,11 +252,30 @@ class BigQueryVectorProductRetriever(ProductRetriever):
             self._bigquery = bigquery
         return self._bigquery
 
+    def _get_fallback_retriever(self) -> ProductRetriever:
+        if self._fallback_retriever is None:
+            self._fallback_retriever = KeywordProductRetriever()
+        return self._fallback_retriever
+
     def _embed_query(self, query: str) -> list[float]:
+        cache_key = _cache_key(query)
+        cache_size = self._get_config().query_embedding_cache_size
+        if cache_size > 0 and cache_key in self._query_embedding_cache:
+            cached = self._query_embedding_cache.pop(cache_key)
+            self._query_embedding_cache[cache_key] = cached
+            return list(cached)
+
         try:
-            return self._get_embedding_provider().embed_text(query)
+            embedding = self._get_embedding_provider().embed_text(query)
         except Exception as exc:
             raise RuntimeError("Vertex AI query embedding failed") from exc
+
+        normalized_embedding = [float(value) for value in embedding]
+        if cache_size > 0 and normalized_embedding:
+            self._query_embedding_cache[cache_key] = normalized_embedding
+            while len(self._query_embedding_cache) > cache_size:
+                self._query_embedding_cache.popitem(last=False)
+        return normalized_embedding
 
     def _build_query_job_config(
         self,
@@ -318,6 +415,19 @@ def _reason_from_distance(distance: float | None) -> str:
         "Matched by BigQuery Vector Search using Vertex AI query embedding "
         f"(cosine distance {distance:.4f})."
     )
+
+
+def _annotate_fallback_result(result: ProductResult) -> ProductResult:
+    reason = (
+        f"{FALLBACK_REASON_PREFIX} {result.reason}"
+        if result.reason
+        else FALLBACK_REASON_PREFIX
+    )
+    return result.model_copy(update={"reason": reason})
+
+
+def _cache_key(query: str) -> str:
+    return " ".join(query.strip().lower().split())
 
 
 def _row_to_dict(row: Any) -> dict[str, Any]:

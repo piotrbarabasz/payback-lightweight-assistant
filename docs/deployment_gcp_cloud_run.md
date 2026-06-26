@@ -112,5 +112,5 @@ The deployment script configures Cloud Run with:
 - GitHub Actions deployment.
 - Secret Manager.
 - Production IAM hardening.
-- Automated managed retrieval fallback.
+- Managed retrieval fallback monitoring.
 - Authenticated endpoints.

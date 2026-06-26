@@ -174,14 +174,16 @@ query analysis detects them.
 
 ## Graceful Failures
 
-The backend fails clearly when:
+The backend fails clearly when required configuration is missing. At request time,
+managed-service failures degrade to local keyword retrieval when the packaged
+catalog is available.
 
-- required environment values are missing,
+Fallback is used when:
+
 - Vertex AI query embedding fails,
 - the query embedding is empty,
 - BigQuery query execution fails,
-- no product rows are returned, which usually means embeddings are missing or
-  filters are too narrow.
+- no product rows are returned, which usually means embeddings are missing or filters are too narrow.
 
 These failures affect only the explicitly enabled `bigquery_vector` backend.
 The default local `keyword` backend remains available.
@@ -191,6 +193,6 @@ The default local `keyword` backend remains available.
 - No deployment is performed by this stage.
 - Vector index setup is optional and not required for the small synthetic
   catalog.
-- No automatic fallback to keyword retrieval is performed inside the backend.
+- Fallback requires the local packaged catalog to be available in the service.
 - Product result details are limited to the existing public response schema.
 - Performance, quota, and cost should be measured before production use.

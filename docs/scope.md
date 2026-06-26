@@ -89,5 +89,5 @@ Still future or production-hardening work:
 - Secret Manager integration where needed.
 - Observability, rate limiting, and authentication.
 - Managed ingestion scheduling.
-- Automatic managed-to-local fallback behavior.
+- Production monitoring for managed-to-local fallback behavior.
 - Autonomous LLM agent orchestration if required by the product scope.

@@ -3,6 +3,7 @@ import pytest
 
 from app.config import get_settings
 from app.main import app
+import app.retrieval.backends.bigquery_vector as bigquery_vector
 
 
 client = TestClient(app)
@@ -117,6 +118,70 @@ def test_amazon_headphones_query_returns_navigational_amazon_results() -> None:
 
 
 def test_support_query_routes_to_support_without_results() -> None:
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Meine PAYBACK Punkte fehlen"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "customer_support"
+    assert data["next_best_action"] == "route_to_support"
+    assert data["results"] == []
+
+
+def test_bigquery_vector_embedding_failure_returns_200_with_keyword_fallback(
+    monkeypatch,
+) -> None:
+    class FailingVertexEmbeddingProvider:
+        def embed_text(self, text: str) -> list[float]:
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+
+    monkeypatch.setenv("RETRIEVAL_BACKEND", "bigquery_vector")
+    monkeypatch.setenv("GCP_PROJECT_ID", "payback-test")
+    monkeypatch.setenv("BIGQUERY_DATASET", "catalog")
+    monkeypatch.setenv("BIGQUERY_PRODUCTS_TABLE", "products")
+    monkeypatch.setattr(
+        bigquery_vector,
+        "VertexAIEmbeddingProvider",
+        FailingVertexEmbeddingProvider,
+    )
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/assistant/query",
+        json={"query": "Show me headphones on Amazon", "top_k": 5},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["results"]
+    assert any(result["partner"] == "amazon" for result in data["results"])
+    assert all(
+        "Fallback keyword retrieval used because managed vector retrieval was unavailable."
+        in (result["reason"] or "")
+        for result in data["results"]
+    )
+
+
+def test_support_query_with_bigquery_vector_backend_does_not_call_retrieval(
+    monkeypatch,
+) -> None:
+    class ExplodingVertexEmbeddingProvider:
+        def __init__(self, *args, **kwargs) -> None:
+            raise AssertionError("support route should not construct embeddings")
+
+    monkeypatch.setenv("RETRIEVAL_BACKEND", "bigquery_vector")
+    monkeypatch.setenv("GCP_PROJECT_ID", "payback-test")
+    monkeypatch.setenv("BIGQUERY_DATASET", "catalog")
+    monkeypatch.setenv("BIGQUERY_PRODUCTS_TABLE", "products")
+    monkeypatch.setattr(
+        bigquery_vector,
+        "VertexAIEmbeddingProvider",
+        ExplodingVertexEmbeddingProvider,
+    )
+    get_settings.cache_clear()
+
     response = client.post(
         "/assistant/query",
         json={"query": "Meine PAYBACK Punkte fehlen"},

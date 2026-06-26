@@ -31,6 +31,8 @@ class LoadTestResult:
     latency_ms: list[float]
     success_count: int
     error_count: int
+    status_counts: dict[int, int]
+    exception_counts: dict[str, int]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -59,6 +61,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=int(os.getenv("LOAD_TEST_SEED", "7")),
         help="Random seed used to choose representative queries. Default: 7.",
+    )
+    parser.add_argument(
+        "--delay-seconds",
+        type=float,
+        default=float(os.getenv("LOAD_TEST_DELAY_SECONDS", "0")),
+        help="Delay between sequential requests. Default: 0.",
     )
     return parser.parse_args(argv)
 
@@ -95,13 +103,16 @@ def run_load_test(
     request_count: int,
     timeout: float,
     seed: int,
+    delay_seconds: float = 0.0,
 ) -> LoadTestResult:
     rng = random.Random(seed)
     latency_ms: list[float] = []
     success_count = 0
     error_count = 0
+    status_counts: dict[int, int] = {}
+    exception_counts: dict[str, int] = {}
 
-    for _ in range(request_count):
+    for index in range(request_count):
         query = rng.choice(DEFAULT_QUERIES)
         request = build_request(base_url, query)
         started_at = time.perf_counter()
@@ -109,19 +120,32 @@ def run_load_test(
         try:
             with urlopen(request, timeout=timeout) as response:
                 response.read()
+                status_counts[response.status] = (
+                    status_counts.get(response.status, 0) + 1
+                )
                 if 200 <= response.status < 300:
                     success_count += 1
                 else:
                     error_count += 1
-        except (HTTPError, URLError, TimeoutError, ValueError):
+        except HTTPError as exc:
+            exc.read()
+            status_counts[exc.code] = status_counts.get(exc.code, 0) + 1
+            error_count += 1
+        except (URLError, TimeoutError, ValueError) as exc:
+            name = type(exc).__name__
+            exception_counts[name] = exception_counts.get(name, 0) + 1
             error_count += 1
         finally:
             latency_ms.append((time.perf_counter() - started_at) * 1000.0)
+            if delay_seconds > 0 and index < request_count - 1:
+                time.sleep(delay_seconds)
 
     return LoadTestResult(
         latency_ms=latency_ms,
         success_count=success_count,
         error_count=error_count,
+        status_counts=status_counts,
+        exception_counts=exception_counts,
     )
 
 
@@ -136,6 +160,16 @@ def print_summary(base_url: str, request_count: int, result: LoadTestResult) -> 
     print(f"Requests sent: {request_count}")
     print(f"Success count: {result.success_count}")
     print(f"Error count: {result.error_count}")
+    print("Status breakdown:")
+    if result.status_counts:
+        for status_code, count in sorted(result.status_counts.items()):
+            print(f"  {status_code}: {count}")
+    else:
+        print("  none")
+    if result.exception_counts:
+        print("Exception breakdown:")
+        for name, count in sorted(result.exception_counts.items()):
+            print(f"  {name}: {count}")
     print(f"Average latency (ms): {average_ms:.2f}")
     print(f"p50 latency (ms): {p50:.2f}")
     print(f"p95 latency (ms): {p95:.2f}")
@@ -153,12 +187,22 @@ def main(argv: list[str] | None = None) -> int:
     if not base_url:
         print("API base URL must not be empty", file=sys.stderr)
         return 2
+    if args.delay_seconds < 0:
+        print("--delay-seconds must be at least 0", file=sys.stderr)
+        return 2
 
     print(
         f"Running sequential load test against {base_url} "
-        f"({args.requests} requests, timeout {args.timeout:.1f}s)"
+        f"({args.requests} requests, timeout {args.timeout:.1f}s, "
+        f"delay {args.delay_seconds:.2f}s)"
     )
-    result = run_load_test(base_url, args.requests, args.timeout, args.seed)
+    result = run_load_test(
+        base_url,
+        args.requests,
+        args.timeout,
+        args.seed,
+        args.delay_seconds,
+    )
     print_summary(base_url, args.requests, result)
 
     return 0 if result.error_count == 0 else 1

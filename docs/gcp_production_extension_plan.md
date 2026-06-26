@@ -116,8 +116,9 @@ The deterministic local path must remain available:
 - `INTENT_BACKEND=rules` runs without GCP services.
 - `RETRIEVAL_BACKEND=keyword` runs without GCP services.
 - `INTENT_BACKEND=vertex_llm` falls back to rules on missing credentials, timeout, invalid JSON, missing fields, unsupported response shape, or inconsistent action policy.
-- `RETRIEVAL_BACKEND=bigquery_vector` should fail clearly if required BigQuery or Vertex configuration is missing.
-- Future managed retrieval fallback should avoid false claims that vector retrieval was used when keyword fallback handled the request.
+- `RETRIEVAL_BACKEND=bigquery_vector` fails clearly if required BigQuery configuration is missing.
+- Runtime Vertex query embedding failures, quota exhaustion, BigQuery transient errors, or empty managed results fall back to local keyword retrieval when the packaged catalog is available.
+- Fallback result reasons are prefixed so responses do not falsely claim that vector retrieval handled the request.
 
 This keeps local demos, tests, and reviewer evaluation reproducible while allowing managed retrieval to be enabled explicitly.
 
@@ -134,7 +135,7 @@ The following work is intentionally left outside the lightweight challenge scope
 - Error-budget and alerting setup.
 - Load testing under expected production traffic.
 - Cost budgets and per-environment quota controls.
-- Managed retrieval fallback design for partial BigQuery or Vertex outages.
+- Managed retrieval fallback monitoring for partial BigQuery or Vertex outages.
 - Real partner API adapters and secret management.
 - CI/CD promotion flow across dev, staging, and production projects.
 

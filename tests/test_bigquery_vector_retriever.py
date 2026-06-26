@@ -10,7 +10,7 @@ from app.retrieval.backends.bigquery_vector import (
     row_to_product_result,
 )
 from app.retrieval.normalizer import normalize_query
-from app.schemas import Partner
+from app.schemas import Partner, Product
 
 
 CONFIG = BigQueryVectorConfig(
@@ -20,6 +20,66 @@ CONFIG = BigQueryVectorConfig(
     location="europe-west1",
     vector_top_k=25,
 )
+
+
+def product(
+    product_id: str,
+    partner: Partner,
+    *,
+    name: str,
+    category: str,
+    description: str,
+    price: float,
+    tags: list[str],
+    availability: bool = True,
+) -> Product:
+    return Product(
+        product_id=product_id,
+        partner=partner,
+        name=name,
+        name_de=name,
+        category=category,
+        description=description,
+        description_de=description,
+        brand="Test Brand",
+        price=price,
+        tags=tags,
+        tags_de=tags,
+        availability=availability,
+        popularity_score=0.8,
+    )
+
+
+def small_catalog() -> list[Product]:
+    return [
+        product(
+            "dm-001",
+            Partner.DM,
+            name="Baby Diapers Size 4",
+            category="baby care",
+            description="Affordable diapers for daily baby care.",
+            price=7.99,
+            tags=["diapers", "baby", "cheap"],
+        ),
+        product(
+            "amazon-001",
+            Partner.AMAZON,
+            name="Wireless Headphones",
+            category="electronics",
+            description="Bluetooth headphones for music and calls.",
+            price=49.99,
+            tags=["headphones", "wireless", "electronics"],
+        ),
+        product(
+            "edeka-001",
+            Partner.EDEKA,
+            name="Spaghetti Pasta",
+            category="pasta and grains",
+            description="Pasta for a quick dinner.",
+            price=1.99,
+            tags=["pasta", "dinner", "grocery"],
+        ),
+    ]
 
 
 class FakeQueryJob:
@@ -169,6 +229,7 @@ def test_retrieve_embeds_query_and_queries_bigquery() -> None:
     assert len(results) == 1
     assert results[0].product_id == "amazon-001"
     assert len(client.queries) == 1
+    assert "Fallback keyword retrieval" not in (results[0].reason or "")
     params = parameter_map(client.job_configs[0])
     assert params["query_embedding"].values == [0.1, 0.2]
     assert params["vector_top_k"].value == 25
@@ -239,6 +300,7 @@ def test_retrieve_applies_category_filter_from_query_analysis() -> None:
 def test_retrieve_fails_clearly_when_config_is_missing(monkeypatch) -> None:
     monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
     get_settings.cache_clear()
+
     retriever = BigQueryVectorProductRetriever(
         client=FakeClient(),
         embedding_provider=FakeEmbeddingProvider(),
@@ -253,19 +315,54 @@ def test_retrieve_fails_clearly_when_config_is_missing(monkeypatch) -> None:
     get_settings.cache_clear()
 
 
-def test_retrieve_wraps_embedding_errors() -> None:
+def test_config_reads_query_embedding_cache_size(monkeypatch) -> None:
+    monkeypatch.setenv("GCP_PROJECT_ID", "payback-dev")
+    monkeypatch.setenv("BIGQUERY_DATASET", "catalog")
+    monkeypatch.setenv("BIGQUERY_PRODUCTS_TABLE", "products")
+    monkeypatch.setenv("BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE", "2")
+    get_settings.cache_clear()
+
+    config = BigQueryVectorConfig.from_env()
+
+    assert config.query_embedding_cache_size == 2
+    get_settings.cache_clear()
+
+
+def test_config_rejects_negative_query_embedding_cache_size(monkeypatch) -> None:
+    monkeypatch.setenv("GCP_PROJECT_ID", "payback-dev")
+    monkeypatch.setenv("BIGQUERY_DATASET", "catalog")
+    monkeypatch.setenv("BIGQUERY_PRODUCTS_TABLE", "products")
+    monkeypatch.setenv("BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE", "-1")
+    get_settings.cache_clear()
+
+    with pytest.raises(
+        ValueError,
+        match="BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE must be at least 0",
+    ):
+        BigQueryVectorConfig.from_env()
+
+    get_settings.cache_clear()
+
+
+def test_retrieve_falls_back_to_keyword_when_embedding_errors() -> None:
+    client = FakeClient()
     retriever = BigQueryVectorProductRetriever(
         CONFIG,
-        client=FakeClient(),
+        client=client,
         embedding_provider=FakeEmbeddingProvider(fail=True),
         bigquery_module=FakeBigQuery,
     )
 
-    with pytest.raises(RuntimeError, match="Vertex AI query embedding failed"):
-        retriever.retrieve("cheap pasta", products=[], top_k=3)
+    results = retriever.retrieve("cheap diapers", products=small_catalog(), top_k=3)
+
+    assert client.queries == []
+    assert results
+    assert results[0].partner == Partner.DM
+    assert results[0].category == "baby care"
+    assert "Fallback keyword retrieval used" in (results[0].reason or "")
 
 
-def test_retrieve_wraps_bigquery_errors() -> None:
+def test_retrieve_falls_back_to_keyword_when_bigquery_errors() -> None:
     retriever = BigQueryVectorProductRetriever(
         CONFIG,
         client=FakeClient(fail=True),
@@ -273,11 +370,15 @@ def test_retrieve_wraps_bigquery_errors() -> None:
         bigquery_module=FakeBigQuery,
     )
 
-    with pytest.raises(RuntimeError, match="BigQuery Vector Search query failed"):
-        retriever.retrieve("cheap pasta", products=[], top_k=3)
+    results = retriever.retrieve("cheap pasta", products=small_catalog(), top_k=3)
+
+    assert results
+    assert results[0].partner == Partner.EDEKA
+    assert results[0].category == "pasta and grains"
+    assert "Fallback keyword retrieval used" in (results[0].reason or "")
 
 
-def test_retrieve_fails_clearly_when_no_products_returned() -> None:
+def test_retrieve_falls_back_when_no_products_returned() -> None:
     retriever = BigQueryVectorProductRetriever(
         CONFIG,
         client=FakeClient(rows=[]),
@@ -285,5 +386,68 @@ def test_retrieve_fails_clearly_when_no_products_returned() -> None:
         bigquery_module=FakeBigQuery,
     )
 
-    with pytest.raises(RuntimeError, match="returned no products"):
-        retriever.retrieve("cheap pasta", products=[], top_k=3)
+    results = retriever.retrieve("cheap pasta", products=small_catalog(), top_k=3)
+
+    assert results
+    assert results[0].partner == Partner.EDEKA
+    assert "Fallback keyword retrieval used" in (results[0].reason or "")
+
+
+def test_fallback_respects_partner_and_category_filters() -> None:
+    retriever = BigQueryVectorProductRetriever(
+        CONFIG,
+        client=FakeClient(fail=True),
+        embedding_provider=FakeEmbeddingProvider(),
+        bigquery_module=FakeBigQuery,
+    )
+
+    results = retriever.retrieve(
+        "Show me headphones on Amazon",
+        products=small_catalog(),
+        top_k=3,
+    )
+
+    assert results
+    assert all(result.partner == Partner.AMAZON for result in results)
+    assert all(result.category == "electronics" for result in results)
+    assert all("Fallback keyword retrieval used" in (result.reason or "") for result in results)
+
+
+def test_embedding_cache_reuses_embedding_for_repeated_identical_queries() -> None:
+    client = FakeClient(
+        rows=[
+            {
+                "product_id": "amazon-001",
+                "partner": "amazon",
+                "name": "Wireless Headphones",
+                "category": "electronics",
+                "price": 39.99,
+                "currency": "EUR",
+                "vector_distance": 0.2,
+            }
+        ]
+    )
+    provider = FakeEmbeddingProvider(embedding=[0.1, 0.2])
+    retriever = BigQueryVectorProductRetriever(
+        CONFIG,
+        client=client,
+        embedding_provider=provider,
+        bigquery_module=FakeBigQuery,
+    )
+
+    retriever.retrieve("Show me headphones on Amazon", products=[], top_k=3)
+    retriever.retrieve(" show me   HEADPHONES on amazon ", products=[], top_k=3)
+
+    assert provider.calls == ["Show me headphones on Amazon"]
+    assert len(client.queries) == 2
+
+
+def test_retrieve_returns_empty_when_fallback_has_no_local_products() -> None:
+    retriever = BigQueryVectorProductRetriever(
+        CONFIG,
+        client=FakeClient(fail=True),
+        embedding_provider=FakeEmbeddingProvider(),
+        bigquery_module=FakeBigQuery,
+    )
+
+    assert retriever.retrieve("cheap pasta", products=[], top_k=3) == []
