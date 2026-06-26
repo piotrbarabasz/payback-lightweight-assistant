@@ -15,8 +15,8 @@ The default repository runtime is local-first and deterministic. It does not use
 - Stage 5 added Docker and local deployment readiness.
 - Stage 6 added minimal Cloud Run deployment scripts and smoke-testing support for the existing containerized FastAPI app.
 - Stage 7A added a retrieval backend abstraction with a local hybrid prototype.
-- Stage 7B is documentation cleanup, production-readiness alignment, and explicit pre-Stage 8 scoping only.
-- Stage 8 is future work for real GCP-native integrations and production hardening.
+- Stage 7B was documentation cleanup, production-readiness alignment, and explicit pre-Stage 8 scoping.
+- Stage 8 adds optional GCP-native integrations and documents remaining production hardening.
 
 ## 3. In Scope
 
@@ -34,6 +34,10 @@ The default repository runtime is local-first and deterministic. It does not use
 - Modular deterministic intent detection with a future provider interface.
 - Docker and Docker Compose usage for local runs.
 - Cloud Run deployment scripts and smoke-test flow for the current containerized local MVP.
+- Optional BigQuery catalog foundation scripts.
+- Optional Vertex AI embedding provider and product embedding generation script.
+- Optional BigQuery Vector Search retriever.
+- Optional Cloud Run runtime service-account configuration for managed retrieval.
 
 ## 4. Local / Mock / Prototype Only
 
@@ -43,7 +47,7 @@ The default repository runtime is local-first and deterministic. It does not use
 - Vertex AI and BigQuery Vector Search are optional Stage 8 extensions and are not part of the default runtime path.
 - Cloud Run deployment keeps the same local MVP behavior inside a container.
 
-## 5. Out of Scope For Stage 7B
+## 5. Out of Scope / Remaining Limitations
 
 - Vertex AI and BigQuery Vector Search in the default local runtime.
 - Real partner API integrations.
@@ -68,13 +72,20 @@ The default repository runtime is local-first and deterministic. It does not use
 - Assistant endpoint returns valid support, clarification, and catalog retrieval responses.
 - Tests validate the API contract, catalog utilities, and retrieval behavior.
 
-## 8. Future Stage 8 Scope
+## 8. Stage 8 Scope
 
-Stage 8 can introduce real production integrations while preserving the local deterministic fallback:
+Stage 8 introduces optional production-integration building blocks while preserving the local deterministic fallback:
 
 - Vertex AI text embeddings.
 - BigQuery product catalog storage.
 - BigQuery Vector Search.
 - Catalog ingestion and embedding refresh jobs.
-- IAM, Secret Manager, observability, rate limiting, and authentication.
+- Cloud Run runtime service-account setup for managed retrieval.
+
+Still future or production-hardening work:
+
+- Secret Manager integration where needed.
+- Observability, rate limiting, and authentication.
+- Managed ingestion scheduling.
+- Automatic managed-to-local fallback behavior.
 - Optional LLM-assisted intent handling or agent orchestration if required by the product scope.

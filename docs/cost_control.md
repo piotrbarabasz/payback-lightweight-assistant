@@ -4,7 +4,7 @@
 
 This project is designed to run within a small GCP trial budget for a recruitment challenge. The deployment keeps the runtime small, avoids always-on infrastructure, and uses only the cloud services needed to expose the Dockerized FastAPI API.
 
-## 2. Current Stage 6 Cost-Related Choices
+## 2. Default Deployment Cost-Related Choices
 
 - Cloud Run only.
 - Minimum instances set to `0`.
@@ -14,8 +14,7 @@ This project is designed to run within a small GCP trial budget for a recruitmen
 - No GPU.
 - No GKE or Kubernetes.
 - No always-on VM.
-- No BigQuery yet.
-- No Vertex AI yet.
+- No BigQuery or Vertex AI calls unless Stage 8 managed retrieval is explicitly enabled.
 - Small synthetic catalog packaged in the container.
 
 ## 3. Recommended GCP Setup
@@ -35,6 +34,8 @@ This project is designed to run within a small GCP trial budget for a recruitmen
 - Vertex AI inference.
 - Embedding generation.
 - BigQuery scans.
+- BigQuery Vector Search queries.
+- BigQuery vector index build and maintenance.
 - Load testing.
 - Minimum instances greater than `0`.
 - High traffic.

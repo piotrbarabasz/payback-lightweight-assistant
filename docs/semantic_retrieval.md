@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Stage 7A introduced a retrieval backend abstraction and a local hybrid retrieval prototype. Stage 7B keeps that implementation as a local-only prototype and documents the boundary before future Stage 8 GCP work.
+Stage 7A introduced a retrieval backend abstraction and a local hybrid retrieval prototype. Stage 8 keeps the local prototype while adding an optional managed BigQuery Vector Search backend.
 
-The goal is to prepare the codebase for future semantic retrieval without claiming that production vector search, Vertex AI, or BigQuery Vector Search is already implemented.
+The goal is to keep retrieval pluggable: local keyword retrieval remains the default, local hybrid remains a prototype, and managed vector retrieval can be enabled explicitly.
 
 The public API response schema is unchanged. Retrieval still returns `ProductResult` objects through the existing assistant response.
 
-The current Stage 7B runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop.
+The default runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop. The optional `bigquery_vector` backend uses Vertex AI and BigQuery when configured.
 
 ## Why Retrieval Backends Were Introduced
 
@@ -18,7 +18,7 @@ The backend abstraction makes retrieval pluggable:
 
 - `KeywordProductRetriever` keeps the existing deterministic behavior.
 - `HybridProductRetriever` can be selected locally for semantic-like experiments.
-- Future production backends can be added behind the same interface.
+- Managed production-oriented backends can be added behind the same interface.
 
 This keeps the FastAPI endpoint and assistant response builder stable while allowing retrieval internals to evolve.
 
@@ -51,6 +51,20 @@ It combines:
 
 The hybrid backend uses local deterministic hash embeddings only. It does not call external APIs, does not require ML model downloads, and does not create or query a vector index.
 
+### `bigquery_vector`
+
+`bigquery_vector` is the optional managed semantic retrieval backend.
+
+It uses:
+
+- Vertex AI to embed the user query,
+- BigQuery `VECTOR_SEARCH` over stored product embeddings,
+- existing partner and category hints as metadata filters,
+- the existing `ProductResult` response schema.
+
+It requires Stage 8 GCP environment variables, product embeddings, and service
+account permissions. It is not enabled by default.
+
 ## Local Embedding Provider
 
 The local embedding provider is `LocalHashEmbeddingProvider`.
@@ -63,7 +77,7 @@ It is designed for tests and local experiments:
 - no external model dependency,
 - suitable for simple cosine-similarity experiments.
 
-It is not a production embedding model and should not be treated as equivalent to Vertex AI embeddings or another trained semantic embedding model. Its purpose is to exercise the retrieval interface and ranking flow before Stage 8.
+It is not a production embedding model and should not be treated as equivalent to Vertex AI embeddings or another trained semantic embedding model. Its purpose is to exercise the retrieval interface and ranking flow locally.
 
 ## Product Text
 
@@ -84,7 +98,7 @@ The product text includes fields such as:
 - availability,
 - promotion information.
 
-This gives future embedding backends a stable product text input while keeping catalog schema and API responses unchanged.
+This gives both local and managed embedding backends a stable product text input while keeping catalog schema and API responses unchanged.
 
 ## Running Hybrid Retrieval Locally
 
@@ -125,16 +139,14 @@ By default:
 
 This keeps the Stage 6 Cloud Run deployment path unchanged.
 
-## Future Stage 8 Production Extensions
+## Stage 8 Managed Retrieval Path
 
-Vertex AI embeddings, BigQuery product storage, and BigQuery Vector Search remain future Stage 8 production extensions.
-
-A future production architecture could:
+Stage 8 adds a managed retrieval path that can:
 
 1. Generate product embeddings offline during catalog ingestion.
 2. Store product metadata and embeddings in BigQuery.
 3. Generate query embeddings at request time with Vertex AI.
 4. Retrieve candidates with BigQuery Vector Search.
-5. Apply business-rule reranking in the API.
+5. Return results through the existing assistant response schema.
 
-That production path is not implemented in Stage 7A or Stage 7B.
+Remaining production hardening includes observability, fallback behavior, IAM review, and ingestion scheduling.

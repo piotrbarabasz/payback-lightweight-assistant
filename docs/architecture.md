@@ -1,10 +1,10 @@
 # Architecture
 
-This document describes the current Stage 7B architecture of the `payback-lightweight-assistant` backend service.
+This document describes the current architecture of the `payback-lightweight-assistant` backend service.
 
 The application is a lightweight FastAPI microservice that receives a raw user query and returns a structured response containing either recommended products or a clarifying question.
 
-Stage 7B is a completed local MVP and pre-Stage 8 readiness state. The current runtime does not use Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an autonomous LLM agent loop.
+The default runtime is a completed local MVP. Stage 8 adds optional GCP-backed retrieval components: BigQuery catalog storage, Vertex AI text embeddings, BigQuery Vector Search, and Cloud Run service-account configuration. These managed components are used only when explicitly configured.
 
 ## High-Level Goal
 
@@ -25,7 +25,7 @@ The service supports multiple query types, including:
 * customer support routing,
 * vague queries requiring clarification.
 
-## Current MVP Architecture
+## Local MVP Architecture
 
 ```mermaid
 flowchart LR
@@ -64,7 +64,32 @@ flowchart LR
     RESPONSE --> U
 ```
 
-The current implementation is local-first and deterministic. The same FastAPI app can run locally, in Docker, or on Cloud Run through the provided scripts. The hybrid retriever is a local prototype only; it does not depend on Vertex AI, BigQuery, BigQuery Vector Search, or any hosted model service.
+The default implementation is local-first and deterministic. The same FastAPI app can run locally, in Docker, or on Cloud Run through the provided scripts. The `keyword` backend is the default. The `hybrid` retriever is a local prototype only; it does not depend on Vertex AI, BigQuery, BigQuery Vector Search, or any hosted model service.
+
+## Optional GCP Vector Retrieval Architecture
+
+```mermaid
+flowchart LR
+    U[User / Client App] --> RUN[Cloud Run FastAPI Service]
+    RUN --> EP[POST /assistant/query]
+
+    EP --> INTENT[Rule-Based Intent and Query Analysis]
+    INTENT --> EMB_Q[Vertex AI Query Embedding]
+    EMB_Q --> BQVS[BigQuery VECTOR_SEARCH]
+
+    BQ[(BigQuery Products Table)]
+    BQ --> BQVS
+    BQVS --> MAP[Map Rows to ProductResult]
+    MAP --> RESPONSE[Structured AssistantQueryResponse]
+    RESPONSE --> U
+
+    INGEST[Catalog Load Script] --> BQ
+    TEXT[embedding_text] --> EMB_P[Vertex AI Product Embedding Script]
+    EMB_P --> BQ
+    IDX[Optional Vector Index] --> BQ
+```
+
+This path is enabled with `RETRIEVAL_BACKEND=bigquery_vector` plus BigQuery and Vertex AI environment variables. The frontend still calls only the Cloud Run HTTP API. BigQuery and Vertex AI calls happen server-side through the Cloud Run service account.
 
 ## Current Runtime Deployment Architecture
 
@@ -82,9 +107,9 @@ flowchart LR
     SMOKE[Smoke Test Script] --> RUN
 ```
 
-This reflects the current Docker and Cloud Run deployment path. The checked-in service still uses the synthetic catalog packaged with the application.
+This reflects the default Docker and Cloud Run deployment path. With default settings, the checked-in service still uses the synthetic catalog packaged with the application.
 
-The deployment path is container deployment only. It does not introduce managed product storage, managed vector search, real partner APIs, or an LLM agent loop.
+The optional Stage 8D deployment path can attach a Cloud Run service account and configure BigQuery/Vertex environment variables for the managed retrieval backend. It does not introduce real partner APIs or an LLM agent loop.
 
 ## Main Components
 
@@ -175,6 +200,7 @@ Available backends:
 | ------- | ------- | ------- |
 | `keyword` | yes | Existing deterministic keyword retrieval with business boosts. |
 | `hybrid` | no | Local prototype combining keyword score, deterministic local semantic-like similarity, and existing business boosts. |
+| `bigquery_vector` | no | Optional managed retriever using Vertex AI query embeddings and BigQuery Vector Search. |
 
 The `keyword` backend uses:
 
@@ -192,6 +218,8 @@ The `keyword` backend uses:
 The `hybrid` backend additionally builds deterministic product text, embeds queries and products with a local hash-based embedding provider, computes cosine similarity, and combines that semantic-like score with the keyword and business-rule signals.
 
 The local embedding provider does not call external APIs, does not download ML models, and is intended for tests and local experiments. It is not a production vector search implementation.
+
+The `bigquery_vector` backend embeds each user query with Vertex AI, queries BigQuery `VECTOR_SEARCH` over the product embedding column, applies partner/category filters when detected, and maps rows back to the existing `ProductResult` schema.
 
 The default retrieval approach remains intentionally simple, explainable, and cost-efficient.
 
@@ -250,7 +278,7 @@ The build step is performed locally with Docker before pushing the image to Arti
 
 After deployment, the service is available as a public HTTPS endpoint on Cloud Run.
 
-This is deployment plumbing, not the future production retrieval architecture. It keeps the current MVP portable while allowing a later swap to managed GCP services in Stage 8.
+This deployment plumbing keeps the current MVP portable while also supporting the optional Stage 8D managed runtime configuration.
 
 ## Current MVP Design Decisions
 
@@ -289,7 +317,7 @@ Reason:
 * keep the API response schema stable,
 * prepare for future production retrieval backends without forcing new infrastructure into the MVP.
 
-The Cloud Run deployment can remain unchanged because `RETRIEVAL_BACKEND` defaults to `keyword`.
+The Cloud Run deployment can remain local-only because `RETRIEVAL_BACKEND` defaults to `keyword`. The managed path must be enabled explicitly.
 
 ### Cloud Run Instead of GKE
 
@@ -303,11 +331,9 @@ Reason:
 * lower operational overhead,
 * suitable for lightweight APIs and demos.
 
-## Future GCP Production Architecture
+## GCP Production Architecture Path
 
-Future Stage 8 production work can extend the MVP with Vertex AI, BigQuery, and BigQuery Vector Search.
-
-Stage 7B does not implement this production architecture. The current `hybrid` backend is local-only and uses deterministic hash embeddings.
+Stage 8 implements the first optional GCP-backed retrieval path with Vertex AI, BigQuery, and BigQuery Vector Search. Production hardening is still required before treating it as a fully managed production system.
 
 ```mermaid
 flowchart LR
@@ -330,11 +356,11 @@ flowchart LR
     RESPONSE --> U
 ```
 
-## Possible Stage 8 Production Improvements
+## Stage 8 GCP Components
 
 ### Vertex AI Text Embeddings
 
-Vertex AI could be used to generate embeddings for:
+Vertex AI is used by the optional provider to generate embeddings for:
 
 * user queries,
 * product names,
@@ -362,7 +388,7 @@ even if not all terms appear directly in the query.
 
 ### BigQuery Vector Search
 
-BigQuery Vector Search could be used to store and search product embeddings at larger scale.
+BigQuery Vector Search is used by the optional `bigquery_vector` backend to search product embeddings at larger scale.
 
 A possible BigQuery table structure:
 
@@ -391,7 +417,7 @@ The local Stage 7A/7B hybrid retriever combines:
 * popularity,
 * business rules.
 
-A future Stage 8 production retrieval engine could use the same high-level shape but replace local hash embeddings and in-memory search with managed vector infrastructure.
+The Stage 8 managed retrieval backend uses the same high-level shape but replaces local hash embeddings and in-memory search with Vertex AI query embeddings and BigQuery Vector Search.
 
 It should combine:
 
@@ -408,15 +434,14 @@ This would preserve explainability while improving semantic recall.
 
 ## Current Limitations
 
-The current MVP does not include:
+The current system still does not include:
 
 * real partner APIs,
 * real-time inventory,
 * user history,
 * personalization,
-* Vertex AI embeddings,
-* BigQuery product storage,
-* BigQuery Vector Search,
+* managed ingestion scheduling,
+* automatic managed-to-local fallback,
 * LLM-based intent classification,
 * autonomous LLM agent orchestration,
 * authentication,
@@ -427,7 +452,7 @@ These limitations are intentional for the lightweight MVP scope.
 
 ## Summary
 
-The current Stage 7B architecture provides a complete lightweight local MVP with:
+The current architecture provides a complete lightweight local MVP with:
 
 * FastAPI API,
 * deterministic intent detection,
@@ -437,6 +462,8 @@ The current Stage 7B architecture provides a complete lightweight local MVP with
 * Docker containerization,
 * local Docker build support,
 * optional Artifact Registry and Cloud Run deployment scripts,
+* optional BigQuery catalog and embedding scripts,
+* optional BigQuery Vector Search retrieval backend,
 * local and deployed smoke test scripts.
 
-The architecture is intentionally simple, explainable, and cost-efficient. It leaves a clear Stage 8 path toward a production-grade GCP-native implementation using Vertex AI, BigQuery, and BigQuery Vector Search, without claiming those services are part of the current runtime.
+The default architecture is intentionally simple, explainable, and cost-efficient. Stage 8 adds a real optional GCP-native retrieval path using Vertex AI, BigQuery, and BigQuery Vector Search, while keeping known production-hardening gaps visible.

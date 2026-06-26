@@ -94,7 +94,7 @@ intended:
 .\.venv312\Scripts\python.exe scripts\gcp\load_catalog_to_bigquery.py --mode replace
 ```
 
-The loader builds `embedding_text` for future Stage 8B work, but it does not
+The loader builds `embedding_text` for Stage 8B embedding generation, but it does not
 call Vertex AI, generate embeddings, or create BigQuery Vector Search indexes.
 
 ## Verify Loaded Catalog

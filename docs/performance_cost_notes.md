@@ -19,9 +19,11 @@ User query
 -> structured JSON response
 ```
 
-The default MVP path uses the `keyword` retrieval backend and does not call external LLMs or embedding APIs during request processing.
+The default MVP path uses the `keyword` retrieval backend and does not call external LLMs, embedding APIs, BigQuery, or vector search during request processing.
 
 Stage 7A also includes an optional `hybrid` backend for local experiments. It uses deterministic local hash embeddings and in-process cosine similarity only; it does not call Vertex AI, BigQuery, BigQuery Vector Search, or external model APIs.
+
+Stage 8 adds an optional `bigquery_vector` backend. That backend embeds the user query with Vertex AI and queries BigQuery Vector Search. It is not enabled by default and should be evaluated separately from the local MVP path.
 
 ## Performance-Oriented Design Decisions
 
@@ -77,8 +79,9 @@ Supported values:
 
 * `keyword`: default, low-cost deterministic keyword retrieval.
 * `hybrid`: local prototype combining keyword score, deterministic local semantic-like similarity, and existing business boosts.
+* `bigquery_vector`: optional managed backend using Vertex AI query embeddings and BigQuery Vector Search.
 
-This allows local experimentation without making hybrid retrieval mandatory for Cloud Run.
+This allows local experimentation and managed retrieval testing without making either path mandatory for Cloud Run.
 
 ### 5. Lightweight Container
 
@@ -117,7 +120,7 @@ Reason:
 * easier deployment,
 * better fit for a small stateless HTTP API.
 
-### 2. No Vertex AI in the Default MVP
+### 2. Vertex AI Is Optional
 
 Vertex AI is not enabled in the default request path.
 
@@ -128,11 +131,20 @@ Reason:
 * fewer IAM and quota dependencies,
 * simpler reproducibility for the reviewer.
 
-Vertex AI is a good candidate for a production extension, especially for text embeddings and LLM-based intent detection, but it is intentionally not required for the current lightweight version.
+Stage 8 includes a real Vertex AI text embedding provider and product embedding generation script. Costs are introduced when those scripts or the `bigquery_vector` backend call Vertex AI.
 
 The local `hybrid` backend does not change this. It uses a deterministic local embedding provider and makes no Vertex AI calls.
 
-### 3. No BigQuery Vector Search in the Default MVP
+Vertex embedding calls add:
+
+* external network latency,
+* model request cost,
+* quota and regional availability considerations,
+* IAM and credential requirements.
+
+Product embeddings should be generated offline or in a controlled refresh job. Request-time Vertex calls should be limited to the user query embedding when managed vector retrieval is enabled.
+
+### 3. BigQuery Vector Search Is Optional
 
 BigQuery Vector Search is not used in the default MVP.
 
@@ -143,9 +155,20 @@ Reason:
 * avoiding BigQuery keeps the demo cheaper and easier to run,
 * no need to manage embedding generation and vector indexes for the MVP.
 
-BigQuery Vector Search would become useful when the product catalog grows beyond the size where simple in-memory search is appropriate.
+Stage 8 includes a real optional BigQuery Vector Search backend. It becomes useful when the product catalog grows beyond the size where simple in-memory search is appropriate.
 
 The local `hybrid` backend does not use BigQuery. It computes product embeddings and cosine similarity inside the FastAPI process for prototype-scale experiments.
+
+BigQuery costs and performance depend on:
+
+* table storage size,
+* embedding column size,
+* query volume,
+* whether vector search uses brute-force search or a vector index,
+* metadata filters such as partner and category,
+* selected candidate pool size such as `BIGQUERY_VECTOR_TOP_K`.
+
+For the tiny synthetic catalog, a vector index is not required. At production scale, an index can reduce latency and scanned work, but introduces index build and maintenance overhead.
 
 ### 4. No Persistent Database
 
@@ -280,9 +303,9 @@ For larger production-scale catalogs, the retrieval layer should be moved to a m
 
 The current `hybrid` backend is a local prototype. It prepares the code structure for semantic retrieval, but it does not provide production-grade vector indexing or approximate nearest-neighbor search.
 
-## Production Cost and Performance Extension
+## Stage 8 Managed Retrieval Cost And Performance
 
-A production-grade version could use the following GCP-native architecture:
+The optional Stage 8 GCP-native retrieval path uses:
 
 ```text
 Cloud Run API
@@ -293,9 +316,9 @@ Cloud Run API
 -> JSON response
 ```
 
-This would improve semantic retrieval quality, especially for vague or natural language discovery queries.
+This can improve semantic retrieval quality, especially for vague or natural language discovery queries.
 
-However, it would also introduce:
+It also introduces:
 
 * embedding generation cost,
 * BigQuery storage cost,
@@ -304,9 +327,16 @@ However, it would also introduce:
 * additional latency from external service calls,
 * more complex deployment and monitoring.
 
+Cloud Run runtime notes:
+
+* The default keyword backend can scale to zero and does not require GCP data/model calls.
+* The `bigquery_vector` backend should run under a Cloud Run service account with least-privilege BigQuery and Vertex AI access.
+* Cold starts may add latency before Vertex AI and BigQuery clients are initialized.
+* Frontend clients should call Cloud Run only; BigQuery and Vertex AI access should remain server-side.
+
 ## Recommended Production Optimization Strategy
 
-If the system is extended with Vertex AI and BigQuery Vector Search, the recommended approach is:
+When using Vertex AI and BigQuery Vector Search, the recommended approach is:
 
 1. Generate product embeddings offline during catalog ingestion.
 2. Store embeddings in BigQuery together with product metadata.
@@ -331,7 +361,7 @@ The current implementation prioritizes:
 
 It intentionally does not maximize semantic retrieval quality yet.
 
-The optional local `hybrid` backend improves experimentation with semantic-like signals, but it is deliberately not the default Cloud Run path.
+The optional local `hybrid` backend improves experimentation with semantic-like signals, but it is deliberately not the default Cloud Run path. The optional `bigquery_vector` backend is the managed semantic retrieval path and should be enabled only when the BigQuery catalog, embeddings, IAM, and environment variables are ready.
 
 This is acceptable for the current lightweight MVP because the challenge focuses on demonstrating the backend core, intent routing, recommendation behavior, and cloud deployment readiness.
 
@@ -348,4 +378,4 @@ The current MVP is optimized for a cost-efficient recruitment demo:
 * explainable recommendation reasons,
 * local and deployed smoke-test scripts.
 
-Vertex AI and BigQuery Vector Search are recommended as future production extensions, not as mandatory dependencies for the lightweight MVP.
+Vertex AI and BigQuery Vector Search are implemented as optional Stage 8 integrations, not mandatory dependencies for the lightweight MVP.

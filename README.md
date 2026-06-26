@@ -9,9 +9,9 @@ The code is intentionally scoped for reproducibility, reviewability, and low ope
 
 ## Current Stage
 
-This repository is currently at **Stage 7B: completed local MVP and pre-Stage 8 readiness**.
+This repository is currently at **Stage 8D: local MVP with optional GCP vector retrieval integration**.
 
-Stage 7B is not a full GCP-native implementation and is not an autonomous LLM agent system. It is a local-first, deterministic assistant backend with clear extension points for future GCP integrations.
+The default runtime remains local-first and deterministic. Stage 8 adds optional BigQuery, Vertex AI, BigQuery Vector Search, and Cloud Run runtime configuration paths that must be enabled explicitly. The project is still not an autonomous LLM agent system.
 
 Stage history:
 
@@ -23,6 +23,10 @@ Stage history:
 - Stage 6 added minimal Cloud Run deployment scripts.
 - Stage 7A added a retrieval backend abstraction with a local hybrid retrieval prototype.
 - Stage 7B completes documentation cleanup, production-readiness hygiene, pluggable architecture clarity, and evaluation readiness before Stage 8.
+- Stage 8A added BigQuery catalog setup, loading, and verification scripts.
+- Stage 8B added a Vertex AI embedding provider and product embedding generation script.
+- Stage 8C added an optional BigQuery Vector Search retriever and optional vector index setup.
+- Stage 8D added Cloud Run service account and environment configuration for the managed backend.
 
 ## Implementation Status
 
@@ -34,19 +38,23 @@ Stage history:
 - Rule-based language and intent detection.
 - Local keyword retrieval.
 - Optional Vertex AI text embedding provider.
+- Optional BigQuery catalog foundation scripts.
+- Optional BigQuery product embedding generation script.
+- Optional BigQuery Vector Search retrieval backend.
+- Optional Cloud Run runtime configuration for BigQuery and Vertex AI.
 - Docker and Docker Compose support.
 - Minimal Cloud Run deployment scripts for the existing containerized FastAPI app.
 - Demo script and smoke tests.
 - Pydantic API schemas, health checks, and catalog preview endpoints.
 - Product search, discovery, comparison, support routing, and clarifying-question responses.
 
-### Local / Mock / Prototype Only
+### Local / Optional
 
 - Synthetic in-repository catalog instead of real partner APIs.
 - Local in-memory retrieval instead of a managed database or vector index.
 - Optional `hybrid` retrieval backend using deterministic local hash embeddings.
-- Placeholder modules for future BigQuery-backed retrieval components; these make no external calls.
-- Cloud Run scripts that deploy the current containerized local MVP, still using the packaged synthetic catalog.
+- Optional `bigquery_vector` backend using Vertex AI query embeddings and BigQuery Vector Search.
+- Cloud Run scripts that deploy the current containerized app with either the default keyword backend or the optional managed backend.
 
 ### Not Implemented
 
@@ -56,9 +64,9 @@ Stage history:
 - Conversation memory.
 - Production authentication, rate limiting, and monitoring.
 
-### Future Stage 8
+### Stage 8 Optional GCP Integration
 
-Stage 8 is the planned production-integration stage. Stage 8A added manual BigQuery catalog foundation scripts, Stage 8B added an optional Vertex AI text embedding provider and product embedding generation script, and Stage 8C adds an optional BigQuery Vector Search retrieval backend. The default local retrieval path remains unchanged.
+Stage 8 is implemented as optional production-integration plumbing. The default local retrieval path remains unchanged.
 
 Stage 8A BigQuery catalog setup and load instructions are documented in [docs/stage_8a_bigquery_catalog.md](docs/stage_8a_bigquery_catalog.md). These scripts are manual utilities only and do not change the default local API behavior.
 
@@ -67,6 +75,8 @@ Stage 8B Vertex AI embedding provider setup is documented in [docs/stage_8b_vert
 Stage 8C BigQuery Vector Search setup is documented in [docs/stage_8c_bigquery_vector_search.md](docs/stage_8c_bigquery_vector_search.md). Enable it explicitly with `RETRIEVAL_BACKEND=bigquery_vector` after product embeddings exist.
 
 Stage 8D Cloud Run runtime setup for BigQuery and Vertex AI service-account access is documented in [docs/stage_8d_cloud_run_gcp_runtime.md](docs/stage_8d_cloud_run_gcp_runtime.md).
+
+Stage 8 reviewer checklist is documented in [docs/stage_8_final_checklist.md](docs/stage_8_final_checklist.md).
 
 ## Design Trade-offs
 
@@ -95,7 +105,7 @@ User query
 
 ## Stage 7B: Documentation and Production-Readiness Cleanup
 
-Stage 7B does not add real GCP integrations or autonomous-agent capabilities. It aligns the docs and repository narrative with the actual local MVP implementation and prepares the project for technical review before Stage 8.
+Stage 7B aligned the docs and repository narrative with the local MVP implementation and prepared the project for Stage 8.
 
 This stage focuses on:
 
@@ -105,9 +115,9 @@ This stage focuses on:
 - evaluation-ready setup instructions and commands,
 - reviewer-friendly scope boundaries.
 
-The current runtime remains local-first and deterministic. The service uses a FastAPI backend, synthetic catalog data, rule-based intent handling, and local retrieval backends. Production GCP components such as Vertex AI, BigQuery, BigQuery Vector Search, real partner integrations, and autonomous LLM agents are future Stage 8 work only.
+The default runtime remains local-first and deterministic. Stage 8 adds optional GCP integration paths, but they are not used unless configured with the relevant environment variables and cloud credentials.
 
-The future GCP extension plan is documented in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
+The GCP extension plan and remaining production hardening notes are documented in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
 
 ## How to Evaluate This Challenge
 
@@ -271,9 +281,9 @@ Local Dockerized FastAPI app
 -> smoke test
 ```
 
-When deployed with these scripts, the service still uses the synthetic catalog packaged inside the container. The deployment script configures minimum instances as `0` for cost efficiency. Vertex AI, BigQuery, and BigQuery Vector Search are planned for future Stage 8 work and are not included in Stage 6 or Stage 7B.
+When deployed with default settings, the service still uses the synthetic catalog packaged inside the container. The deployment script configures minimum instances as `0` for cost efficiency. Stage 8D can also deploy the same container with `RETRIEVAL_BACKEND=bigquery_vector`, BigQuery environment variables, Vertex AI environment variables, and a Cloud Run runtime service account.
 
-Stage 7A does not require changing the Cloud Run deployment. If `RETRIEVAL_BACKEND` is not set, the service uses the default `keyword` backend and continues to run without Vertex AI or BigQuery.
+If `RETRIEVAL_BACKEND` is not set, the service uses the default `keyword` backend and continues to run without Vertex AI or BigQuery.
 
 Quick deployment flow:
 
@@ -413,7 +423,7 @@ API_BASE_URL=http://127.0.0.1:8000 python scripts/smoke_test_api.py
 
 ## Cloud Run
 
-Use the Stage 6 quick deployment flow above for the Bash script sequence. This deploys the current containerized local MVP to Cloud Run; it does not add Vertex AI, BigQuery, BigQuery Vector Search, real partner APIs, or an LLM agent loop. Detailed instructions are in [docs/deployment_gcp_cloud_run.md](docs/deployment_gcp_cloud_run.md), and cost-control notes are in [docs/cost_control.md](docs/cost_control.md).
+Use the Stage 6 quick deployment flow above for the default keyword backend. For the optional BigQuery/Vertex runtime path, follow [docs/stage_8d_cloud_run_gcp_runtime.md](docs/stage_8d_cloud_run_gcp_runtime.md). Cost-control notes are in [docs/cost_control.md](docs/cost_control.md).
 
 ## Running Tests
 
@@ -513,15 +523,17 @@ result shape and add comparison-oriented reasons plus response-level
 available catalog fields such as price, partner, category, promotion status,
 and relevance score.
 
-## Future Stage 8
+## Stage 8 Status
 
-Stage 8 should be treated as production integration work. Candidate additions:
+Stage 8 currently includes:
 
-- Hardening Vertex AI and BigQuery Vector Search retrieval for production traffic.
-- Offline catalog ingestion and embedding refresh jobs.
-- Production IAM, Secret Manager, observability, rate limiting, and authentication.
-- Optional LLM-assisted intent handling or agent orchestration, if required.
+- BigQuery catalog foundation scripts.
+- Vertex AI text embedding provider.
+- BigQuery product embedding generation script.
+- Optional BigQuery Vector Search retrieval backend.
+- Optional BigQuery vector index setup.
+- Cloud Run runtime service-account and environment configuration for the managed backend.
 
-The detailed future GCP plan is in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
+Remaining production work includes managed ingestion scheduling, stronger fallback behavior, observability, authentication, rate limiting, and production IAM review. The detailed GCP plan is in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
 
-The Stage 7B API contract and local deterministic behavior should remain available as a fallback while these integrations are added.
+The local deterministic API contract remains the default and should remain available as a fallback while managed integrations are hardened.

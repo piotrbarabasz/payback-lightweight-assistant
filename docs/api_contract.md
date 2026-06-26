@@ -1,6 +1,6 @@
 # API Contract
 
-This document defines the API contract for the lightweight assistant backend. The current MVP uses deterministic intent detection and local retrieval over the synthetic catalog. It does not use Vertex AI, BigQuery, BigQuery Vector Search, Gemini, or real partner APIs.
+This document defines the API contract for the lightweight assistant backend. The default MVP uses deterministic intent detection and local retrieval over the synthetic catalog. Optional Stage 8 configuration can switch retrieval to BigQuery Vector Search with Vertex AI query embeddings, but the public response schema remains the same. The service does not use Gemini or real partner APIs.
 
 Base URL for local development:
 
@@ -32,7 +32,9 @@ http://127.0.0.1:8000
 - Accepts a raw user query.
 - Returns keyword-ranked product results, a clarifying question, a support routing decision, or a comparison response.
 - Performs deterministic query normalization, language detection, intent detection, specificity classification, partner hint detection, entity extraction, next-best-action selection, keyword matching, filtering, scoring, and ranking.
-- Does not perform managed semantic search, Vertex AI embeddings, BigQuery retrieval, or LLM-based intent detection in the current MVP.
+- Uses local keyword retrieval by default.
+- Can use managed BigQuery Vector Search with Vertex AI query embeddings when `RETRIEVAL_BACKEND=bigquery_vector` is configured.
+- Does not perform LLM-based intent detection.
 
 ### Request Body
 
