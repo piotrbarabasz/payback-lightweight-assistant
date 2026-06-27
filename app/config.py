@@ -76,7 +76,7 @@ class Settings:
     VERTEX_AI_LOCATION: str = ""
     VERTEX_EMBEDDING_MODEL: str = ""
     VERTEX_EMBEDDING_DIMENSIONS: int = 0
-    VERTEX_INTENT_MODEL: str = "gemini-3.5-flash"
+    VERTEX_INTENT_MODEL: str = "gemini-2.5-flash"
     INTENT_LLM_TIMEOUT_SECONDS: float = 3.0
 
     @classmethod

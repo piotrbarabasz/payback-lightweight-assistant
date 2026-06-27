@@ -11,9 +11,11 @@ PERFORMANCE_DOC = Path("docs/performance_cost_notes.md")
 def test_readme_presents_final_candidate_and_default_path() -> None:
     readme = README.read_text(encoding="utf-8")
 
-    assert "Stage 9B / final candidate" in readme
+    assert "Stage 10C / final candidate" in readme
     assert "`INTENT_BACKEND=rules`, `RETRIEVAL_BACKEND=keyword`" in readme
+    assert "`INTENT_BACKEND=rules` with `RETRIEVAL_BACKEND=bigquery_vector`" in readme
     assert 'export INTENT_BACKEND="vertex_llm"' in readme
+    assert "fall back to local keyword retrieval" in readme
     assert "It is not an autonomous LLM agent loop." in readme
 
 
@@ -22,6 +24,7 @@ def test_demo_results_include_verified_managed_gcp_validation() -> None:
 
     assert "## Verified GCP Managed Demo" in doc
     assert "`GET /health` returned `200 OK`" in doc
+    assert "`INTENT_BACKEND=rules` and `RETRIEVAL_BACKEND=bigquery_vector`" in doc
     assert "Five smoke-test `POST /assistant/query` calls returned `200 OK`" in doc
     assert "`RETRIEVAL_BACKEND=bigquery_vector`" in doc
     assert "`INTENT_BACKEND=vertex_llm`" in doc

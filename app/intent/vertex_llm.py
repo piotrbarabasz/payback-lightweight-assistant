@@ -25,7 +25,7 @@ from app.schemas import (
 )
 
 
-DEFAULT_VERTEX_INTENT_MODEL = "gemini-3.5-flash"
+DEFAULT_VERTEX_INTENT_MODEL = "gemini-2.5-flash"
 DEFAULT_INTENT_LLM_TIMEOUT_SECONDS = 3.0
 LLM_CONFIDENCE = 0.8
 

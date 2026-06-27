@@ -66,7 +66,7 @@ def test_default_settings_load_correctly(monkeypatch) -> None:
     assert settings.VERTEX_AI_LOCATION == ""
     assert settings.VERTEX_EMBEDDING_MODEL == ""
     assert settings.VERTEX_EMBEDDING_DIMENSIONS == 0
-    assert settings.VERTEX_INTENT_MODEL == "gemini-3.5-flash"
+    assert settings.VERTEX_INTENT_MODEL == "gemini-2.5-flash"
     assert settings.INTENT_LLM_TIMEOUT_SECONDS == 3.0
 
 
@@ -243,7 +243,7 @@ def test_blank_gcp_catalog_environment_variables_use_safe_defaults(monkeypatch) 
     assert settings.VERTEX_AI_LOCATION == ""
     assert settings.VERTEX_EMBEDDING_MODEL == ""
     assert settings.VERTEX_EMBEDDING_DIMENSIONS == 0
-    assert settings.VERTEX_INTENT_MODEL == "gemini-3.5-flash"
+    assert settings.VERTEX_INTENT_MODEL == "gemini-2.5-flash"
     assert settings.INTENT_LLM_TIMEOUT_SECONDS == 3.0
 
 

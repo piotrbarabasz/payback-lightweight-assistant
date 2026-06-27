@@ -23,7 +23,7 @@ The default MVP path uses the `keyword` retrieval backend and does not call exte
 
 Stage 7A also includes an optional `hybrid` backend for local experiments. It uses deterministic local hash embeddings and in-process cosine similarity only; it does not call Vertex AI, BigQuery, BigQuery Vector Search, or external model APIs.
 
-Stage 8 adds an optional `bigquery_vector` backend. That backend embeds the user query with Vertex AI and queries BigQuery Vector Search. It is not enabled by default and should be evaluated separately from the local MVP path. If the managed embedding or BigQuery query fails at request time, the service logs a warning and falls back to local keyword retrieval when the packaged catalog is available.
+Stage 8 adds an optional `bigquery_vector` backend. That backend embeds the user query with Vertex AI and queries BigQuery Vector Search. It is not enabled by default and should be evaluated separately from the local MVP path. Stage 10B adds resilience to this managed path: if the managed embedding or BigQuery query fails at request time, the service logs a warning and falls back to local keyword retrieval when the packaged catalog is available.
 
 Stage 9B adds an optional `vertex_llm` intent backend. That backend uses Vertex/Gemini only to classify the raw query into the existing structured intent fields. It is not enabled by default and falls back to deterministic rules on timeout, missing credentials, invalid JSON, missing fields, unsupported values, or inconsistent policy output.
 

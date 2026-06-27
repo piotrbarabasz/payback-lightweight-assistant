@@ -9,11 +9,13 @@ The code is intentionally scoped for reproducibility, reviewability, and low ope
 
 ## Current Stage
 
-This repository is currently at **Stage 9B / final candidate**.
+This repository is currently at **Stage 10C / final candidate**.
 
 The default local path is intentionally simple: `INTENT_BACKEND=rules`, `RETRIEVAL_BACKEND=keyword`, and the checked-in synthetic catalog. It runs without Google Cloud credentials, Vertex AI, BigQuery, or Gemini.
 
 The optional managed GCP path is explicit: Cloud Run can run the same FastAPI service with `RETRIEVAL_BACKEND=bigquery_vector` for Vertex AI query embeddings and BigQuery Vector Search, and can optionally use `INTENT_BACKEND=vertex_llm` for Gemini JSON intent parsing. Neither managed retrieval nor LLM intent parsing is enabled by default.
+
+The validated final Cloud Run demo uses `INTENT_BACKEND=rules` with `RETRIEVAL_BACKEND=bigquery_vector`. Stage 10B makes that managed path resilient: Vertex AI query embedding quota or transient BigQuery/Vertex failures log a warning and fall back to local keyword retrieval when possible instead of returning HTTP 500.
 
 The project has a lightweight deterministic agent layer for intent detection, decision policy, and assistant orchestration. It is not an autonomous LLM agent loop.
 
@@ -33,6 +35,8 @@ Stage history:
 - Stage 8D added Cloud Run service account and environment configuration for the managed backend.
 - Stage 9A added lightweight deterministic intent, decision, and assistant orchestration agents.
 - Stage 9B added an optional Vertex/Gemini JSON intent backend with deterministic rules fallback.
+- Stage 10B added resilient managed retrieval fallback for Vertex AI quota/transient failures and an in-memory query embedding cache.
+- Stage 10C finalizes submission documentation and deployment consistency.
 
 ## Implementation Status
 
@@ -49,6 +53,7 @@ Stage history:
 - Optional BigQuery catalog foundation scripts.
 - Optional BigQuery product embedding generation script.
 - Optional BigQuery Vector Search retrieval backend.
+- Resilient fallback from managed vector retrieval to local keyword retrieval when Vertex AI or BigQuery is temporarily unavailable.
 - Optional Cloud Run runtime configuration for BigQuery and Vertex AI.
 - Docker and Docker Compose support.
 - Minimal Cloud Run deployment scripts for the existing containerized FastAPI app.
@@ -95,6 +100,7 @@ Stage 8 reviewer checklist is documented in [docs/stage_8_final_checklist.md](do
 - The retrieval and intent layers are pluggable so optional Vertex AI or BigQuery-backed components can be enabled without changing the public API contract.
 - The optional Vertex/Gemini intent backend is used only for structured intent parsing. It does not retrieve products, generate final answers, or run autonomous planning.
 - The Vertex/Gemini intent backend falls back to the deterministic `rules` backend on invalid JSON, missing fields, unsupported output, timeout, missing credentials, or upstream errors.
+- The managed vector retriever falls back to local keyword retrieval on query embedding quota/transient failures so the API can still return HTTP 200 with explicit fallback reasons when local catalog results are available.
 
 ## Known Limitations
 
@@ -177,7 +183,7 @@ docker build -t payback-lightweight-assistant .
 
 ### Cloud Run Demo
 
-The default Cloud Run deployment keeps the low-cost local behavior:
+The deployment script defaults to the low-cost local behavior when no managed retrieval variables are set:
 
 ```bash
 export GCP_PROJECT_ID="your-project-id"
@@ -196,9 +202,10 @@ bash infra/gcp/deploy_cloud_run.sh
 bash infra/gcp/smoke_test_deployed_api.sh
 ```
 
-The optional managed retrieval path requires Stage 8 BigQuery and Vertex AI setup before deployment:
+The validated final stable Cloud Run demo uses deterministic intent with managed retrieval:
 
 ```bash
+export INTENT_BACKEND="rules"
 export RETRIEVAL_BACKEND="bigquery_vector"
 export CLOUD_RUN_SERVICE_ACCOUNT="payback-assistant-runtime@your-project-id.iam.gserviceaccount.com"
 export GCP_LOCATION="europe-west1"
@@ -206,9 +213,11 @@ export BIGQUERY_DATASET="payback_catalog"
 export BIGQUERY_PRODUCTS_TABLE="products"
 export BIGQUERY_LOCATION="europe-west1"
 export BIGQUERY_VECTOR_TOP_K="25"
+export BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE="128"
 export VERTEX_AI_LOCATION="europe-west1"
 export VERTEX_EMBEDDING_MODEL="text-embedding-005"
 bash infra/gcp/deploy_cloud_run.sh
+bash infra/gcp/smoke_test_deployed_api.sh
 ```
 
 Enable the optional Vertex/Gemini intent backend only when Vertex AI access is configured:
@@ -216,7 +225,7 @@ Enable the optional Vertex/Gemini intent backend only when Vertex AI access is c
 ```bash
 export INTENT_BACKEND="vertex_llm"
 export VERTEX_AI_LOCATION="europe-west1"
-export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export VERTEX_INTENT_MODEL="gemini-2.5-flash"
 export INTENT_LLM_TIMEOUT_SECONDS="3"
 bash infra/gcp/deploy_cloud_run.sh
 ```
@@ -400,7 +409,7 @@ Runtime configuration is environment-based:
 | `VERTEX_AI_LOCATION` | empty | Optional Vertex AI location override for embeddings. Takes precedence over `GCP_LOCATION`. |
 | `VERTEX_EMBEDDING_MODEL` | empty | Vertex text embedding model id. Required when constructing the Vertex embedding provider. |
 | `VERTEX_EMBEDDING_DIMENSIONS` | empty | Optional output dimensionality for models that support it. |
-| `VERTEX_INTENT_MODEL` | `gemini-3.5-flash` | Optional Vertex/Gemini model id for `INTENT_BACKEND=vertex_llm`. |
+| `VERTEX_INTENT_MODEL` | `gemini-2.5-flash` | Optional Vertex/Gemini model id for `INTENT_BACKEND=vertex_llm`. |
 | `INTENT_LLM_TIMEOUT_SECONDS` | `3.0` | Request timeout for optional Vertex/Gemini intent classification before falling back to rules. |
 
 Enable optional Vertex/Gemini intent parsing locally:
@@ -409,7 +418,7 @@ Enable optional Vertex/Gemini intent parsing locally:
 export INTENT_BACKEND="vertex_llm"
 export GCP_PROJECT_ID="your-project-id"
 export VERTEX_AI_LOCATION="europe-west1"
-export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export VERTEX_INTENT_MODEL="gemini-2.5-flash"
 export INTENT_LLM_TIMEOUT_SECONDS="3"
 uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 ```
@@ -509,7 +518,7 @@ API_BASE_URL=http://127.0.0.1:8000 python scripts/smoke_test_api.py
 
 ## Cloud Run
 
-Use the Cloud Run demo flow above for the default `rules` + `keyword` backend. For the optional BigQuery/Vertex runtime path, follow [docs/stage_8d_cloud_run_gcp_runtime.md](docs/stage_8d_cloud_run_gcp_runtime.md). Cost-control notes are in [docs/cost_control.md](docs/cost_control.md).
+Use the Cloud Run demo flow above for either the default `rules` + `keyword` backend or the final stable `rules` + `bigquery_vector` managed demo. For the full BigQuery/Vertex runtime setup, follow [docs/stage_8d_cloud_run_gcp_runtime.md](docs/stage_8d_cloud_run_gcp_runtime.md). Cost-control notes are in [docs/cost_control.md](docs/cost_control.md).
 
 ## Running Tests
 
@@ -609,9 +618,9 @@ result shape and add comparison-oriented reasons plus response-level
 available catalog fields such as price, partner, category, promotion status,
 and relevance score.
 
-## Stage 8 Status
+## Stage 8-10 Status
 
-Stage 8 currently includes:
+The implemented GCP and resilience path currently includes:
 
 - BigQuery catalog foundation scripts.
 - Vertex AI text embedding provider.
@@ -619,6 +628,7 @@ Stage 8 currently includes:
 - Optional BigQuery Vector Search retrieval backend.
 - Optional BigQuery vector index setup.
 - Cloud Run runtime service-account and environment configuration for the managed backend.
+- Stage 10B managed retrieval fallback and query embedding cache.
 
 Remaining production work includes managed ingestion scheduling, fallback monitoring, observability, authentication, rate limiting, and production IAM review. The detailed GCP plan is in [docs/gcp_production_extension_plan.md](docs/gcp_production_extension_plan.md).
 

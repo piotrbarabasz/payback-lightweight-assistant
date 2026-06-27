@@ -11,8 +11,10 @@ Stage 8 and Stage 9 are no longer only a plan. The repository now includes:
 - Lightweight deterministic intent, decision, and assistant agents.
 - Optional Vertex/Gemini JSON intent parsing through `INTENT_BACKEND=vertex_llm`.
 - Rules fallback for the optional LLM intent backend.
+- Stage 10B managed retrieval fallback for Vertex AI quota/transient failures.
+- In-memory query embedding cache for repeated managed retrieval queries.
 
-Manual GCP validation has confirmed Cloud Run deployment, Vertex AI query embeddings, BigQuery Vector Search product results, optional Vertex/Gemini intent parsing, and rules fallback.
+Manual GCP validation has confirmed Cloud Run deployment, `INTENT_BACKEND=rules`, Vertex AI query embeddings, BigQuery Vector Search product results, optional Vertex/Gemini intent parsing, and fallback behavior.
 
 ## Current Runtime Modes
 
@@ -20,7 +22,7 @@ Manual GCP validation has confirmed Cloud Run deployment, Vertex AI query embedd
 | --- | --- | --- | --- |
 | Default local | `rules` | `keyword` | No GCP credentials, Vertex AI, Gemini, BigQuery, or partner APIs required. |
 | Local prototype | `rules` | `hybrid` | Uses deterministic local hash embeddings only. |
-| Managed retrieval | `rules` | `bigquery_vector` | Uses Vertex AI query embeddings and BigQuery Vector Search. |
+| Final stable managed demo | `rules` | `bigquery_vector` | Uses Vertex AI query embeddings and BigQuery Vector Search with local keyword fallback for transient managed-service failures. |
 | Optional LLM intent + managed retrieval | `vertex_llm` | `bigquery_vector` | Uses Gemini only for structured intent JSON, then the normal retrieval path. |
 
 The public API response schema is unchanged across these modes.
@@ -71,6 +73,7 @@ export BIGQUERY_DATASET="payback_catalog"
 export BIGQUERY_PRODUCTS_TABLE="products"
 export BIGQUERY_LOCATION="europe-west1"
 export BIGQUERY_VECTOR_TOP_K="25"
+export BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE="128"
 export VERTEX_AI_LOCATION="europe-west1"
 export VERTEX_EMBEDDING_MODEL="text-embedding-005"
 ```
@@ -81,7 +84,7 @@ Optional Vertex/Gemini intent parsing:
 export INTENT_BACKEND="vertex_llm"
 export GCP_PROJECT_ID="your-project-id"
 export VERTEX_AI_LOCATION="europe-west1"
-export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export VERTEX_INTENT_MODEL="gemini-2.5-flash"
 export INTENT_LLM_TIMEOUT_SECONDS="3"
 ```
 

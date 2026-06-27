@@ -80,14 +80,15 @@ python scripts/smoke_test_api.py
 
 ## Verified GCP Managed Demo
 
-Manual validation has been completed against Cloud Run with the managed GCP path enabled:
+Manual validation has been completed against Cloud Run with the final stable managed GCP path enabled:
 
+- Final stable demo configuration used `INTENT_BACKEND=rules` and `RETRIEVAL_BACKEND=bigquery_vector`.
 - `GET /health` returned `200 OK`.
 - Five smoke-test `POST /assistant/query` calls returned `200 OK`.
 - `RETRIEVAL_BACKEND=bigquery_vector` used Vertex AI query embeddings and BigQuery Vector Search.
 - Product results included BigQuery Vector Search reason text.
-- `INTENT_BACKEND=vertex_llm` was enabled and validated as an optional intent backend.
-- Rules fallback was observed and preserved for invalid or inconsistent model output.
+- `INTENT_BACKEND=vertex_llm` was also validated separately as an optional intent backend, but it is not the default final demo mode.
+- Rules fallback was observed and preserved for invalid or inconsistent optional LLM output.
 
 Validated smoke-test query set:
 
@@ -277,4 +278,4 @@ The current API demo covers:
 - comparison routing with summary fields,
 - clarification behavior for vague queries.
 
-This is a lightweight MVP demo, not a managed production benchmark. The response behavior above comes from the local deterministic backend. Managed BigQuery/Vertex results should be recorded separately only after running the scripts against a real configured GCP environment.
+This is a lightweight MVP demo, not a managed production benchmark. The detailed response examples above are the stable local deterministic baseline. The verified managed Cloud Run results are summarized separately in this document because exact product ordering can vary with BigQuery table contents, embeddings, and model version.

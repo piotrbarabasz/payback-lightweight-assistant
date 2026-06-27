@@ -48,7 +48,7 @@ Optional Vertex/Gemini intent parsing:
 export INTENT_BACKEND="vertex_llm"
 export CLOUD_RUN_SERVICE_ACCOUNT="payback-assistant-runtime@your-project-id.iam.gserviceaccount.com"
 export VERTEX_AI_LOCATION="europe-west1"
-export VERTEX_INTENT_MODEL="gemini-3.5-flash"
+export VERTEX_INTENT_MODEL="gemini-2.5-flash"
 export INTENT_LLM_TIMEOUT_SECONDS="3"
 ```
 

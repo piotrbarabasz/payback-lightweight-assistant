@@ -49,6 +49,7 @@ def test_deploy_script_keeps_keyword_default_and_supports_bigquery_vector() -> N
     assert "BIGQUERY_PRODUCTS_TABLE" in script
     assert "BIGQUERY_LOCATION" in script
     assert "BIGQUERY_VECTOR_TOP_K" in script
+    assert "BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE" in script
     assert "VERTEX_AI_LOCATION" in script
     assert "VERTEX_EMBEDDING_MODEL" in script
     assert "VERTEX_INTENT_MODEL" in script
@@ -65,11 +66,12 @@ def test_stage_8d_docs_include_required_operational_commands() -> None:
     assert 'export RETRIEVAL_BACKEND="keyword"' in doc
     assert 'export RETRIEVAL_BACKEND="bigquery_vector"' in doc
     assert 'export INTENT_BACKEND="vertex_llm"' in doc
-    assert 'export VERTEX_INTENT_MODEL="gemini-3.5-flash"' in doc
+    assert 'export VERTEX_INTENT_MODEL="gemini-2.5-flash"' in doc
     assert "gcloud run services update" in doc
     assert "gcloud run services logs tail" in doc
     assert "gcloud logging read" in doc
     assert "Frontend -> Cloud Run HTTPS API -> BigQuery / Vertex AI" in doc
     assert "Billing must be enabled" in doc
     assert "ALLOW_PROJECT_BIGQUERY_DATA_VIEWER" in doc
+    assert "BIGQUERY_QUERY_EMBEDDING_CACHE_SIZE" in doc
     assert "Manual validation evidence" in doc
